@@ -86,3 +86,4 @@ async def generate_response(user_id: int, user_message: str, user_db_info: dict)
         if "model_not_found" in error_detail.lower():
              return f"ごめんなさい、LM Studioで指定されたモデルが見つかりませんでした。現在ロードされているモデルを確認してください。(エラー詳細: {error_detail})"
         return f"ごめんなさい、ローカルAIでエラーが発生しました。(詳細: {error_detail})"
+    
