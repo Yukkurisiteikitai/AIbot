@@ -3,31 +3,31 @@ import os
 import openai
 import logging
 from dotenv import load_dotenv
+import db_manager # db_manager.py をインポート
 
 load_dotenv()
 
 # --- LM Studio 設定 ---
-# .envファイルからLM StudioのエンドポイントURLを読み込む
-# デフォルトは http://localhost:1234/v1
-LM_STUDIO_URL = os.getenv("LM_STUDIO_BASE_URL")
-# LM StudioはAPIキーを必要としない場合が多いので、ダミーを設定
-LM_STUDIO_API_KEY = "lm-studio" # または "dummy-key", "not-needed" など
-LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL")
+LM_STUDIO_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1") # デフォルト値追加
+LM_STUDIO_API_KEY = os.getenv("LM_STUDIO_API_KEY", "lm-studio") # デフォルト値または.envから
+LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "loaded-model") # .envから、なければ仮の値
+CONVERSATION_HISTORY_LIMIT = int(os.getenv("CONVERSATION_HISTORY_LIMIT", 10)) # 履歴件数制限 (デフォルト10件)
 
-logger = logging.getLogger('discord')
+logger = logging.getLogger('discord') # discord.py のロガーを使用
 
 # --- OpenAI クライアントの初期化 (LM Studio 用) ---
 client = openai.AsyncOpenAI(
     base_url=LM_STUDIO_URL,
-    api_key=LM_STUDIO_API_KEY, # ダミーキーを設定
+    api_key=LM_STUDIO_API_KEY,
 )
 logger.info(f"Using LM Studio endpoint: {LM_STUDIO_URL}")
+logger.info(f"Using LM Studio model (placeholder): {LM_STUDIO_MODEL}") # モデル名を確認用にログ出力
+logger.info(f"Conversation history limit: {CONVERSATION_HISTORY_LIMIT}")
 
 async def generate_response(user_id: int, user_message: str, user_db_info: dict) -> str:
-    """ユーザー情報とメッセージに基づいてLLMで応答を生成する (LM Studio版)"""
+    """ユーザー情報とメッセージ、会話履歴に基づいてLLMで応答を生成する (LM Studio版)"""
     # --- プロンプトの組み立て ---
-    # (ここはOpenAI版と同じ)
-    system_prompt = "あなたはユーザーの分身として応答するAIです。\n"
+    system_prompt = "あなたはユーザーの分身として応答する人間です。\n"
     system_prompt += "以下のユーザー情報を参考に、その人になりきって自然に会話してください。\n"
 
     if user_db_info:
@@ -49,41 +49,91 @@ async def generate_response(user_id: int, user_message: str, user_db_info: dict)
 
     system_prompt += "\nユーザーへの応答だけを生成してください。"
 
-    logger.debug(f"System Prompt for user {user_id}:\n{system_prompt}")
-    logger.debug(f"User Message from {user_id}: {user_message}")
+    logger.debug(f"[User:{user_id}] System Prompt:\n{system_prompt}")
+    logger.debug(f"[User:{user_id}] User Message: {user_message}")
+
+    # --- 会話履歴の取得 ---
+    past_history = await db_manager.get_conversation_history(user_id=user_id, limit=CONVERSATION_HISTORY_LIMIT)
+    logger.debug(f"[User:{user_id}] Retrieved {len(past_history)} past messages: {past_history}")
+
+    # --- 履歴フィルタリング (役割の交互性を保証) ---
+    filtered_history = []
+    if past_history:
+        # 最初のメッセージが 'assistant' なら削除 (system の次は user を期待)
+        # Note: LM Studio のテンプレートによっては assistant 開始でも良い場合がある
+        if past_history[0]['role'] == 'assistant':
+            logger.debug("[User:{user_id}] History starts with 'assistant', removing first message.")
+            past_history = past_history[1:]
+
+    # 交互になるようにフィルタリング
+    last_role = 'system' # 初期状態は system の後とみなす
+    for i, msg in enumerate(past_history):
+        # 直前の役割と同じならスキップ (エラーの原因)
+        if msg['role'] == last_role:
+             logger.warning(f"[User:{user_id}] Skipping consecutive role '{msg['role']}' at index {i} in history.")
+             continue
+        # system が履歴に含まれていたらスキップ
+        if msg['role'] == 'system':
+             logger.warning(f"[User:{user_id}] Skipping unexpected 'system' role at index {i} in history.")
+             continue
+        # role が user/assistant 以外ならスキップ (念のため)
+        if msg['role'] not in ('user', 'assistant'):
+             logger.warning(f"[User:{user_id}] Skipping invalid role '{msg['role']}' at index {i} in history.")
+             continue
+
+        filtered_history.append(msg)
+        last_role = msg['role']
+
+    # 履歴の最後が 'user' の場合、それも削除 (次の user メッセージと連続するため)
+    if filtered_history and filtered_history[-1]['role'] == 'user':
+        logger.debug("[User:{user_id}] History ends with 'user', removing last message to prevent conflict.")
+        # filtered_history.pop()
+
+    logger.debug(f"[User:{user_id}] Filtered history ({len(filtered_history)} messages): {filtered_history}")
+
+    # --- メッセージリストの構築 ---
+    messages = []
+    messages.append({"role": "system", "content": system_prompt})
+    messages.extend(filtered_history)
+    messages.append({"role": "user", "content": user_message})
+
+    logger.debug(f"[User:{user_id}] Messages prepared for LLM (total {len(messages)} items): {messages}")
 
     # --- LM Studio API呼び出し ---
     try:
-        # 注意: 'model'パラメータはLM Studioでロードしているモデル名に合わせてください。
-        # LM Studioのローカルサーバータブで確認できます。
-        # モデル名はLM Studio側で管理されるため、特定の値が必要ない場合もありますが、
-        # API仕様上必要な場合が多いです。"local-model" やロードしたモデル名の一部など。
-        # 例: "loaded-model" や "mistral-7b-instruct-v0.1.Q4_K_M.gguf" など
-        # LM Studioのバージョンや設定により、不要な場合や特定の指定が必要な場合があります。
-        # まずはダミー値やロード中のモデル名で試してみてください。
         completion = await client.chat.completions.create(
-            model=LM_STUDIO_MODEL, # ★ LM Studioでロードしているモデル名に合わせて調整 ★
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
+            model=LM_STUDIO_MODEL,
+            messages=messages, # 修正されたメッセージリストを使用
             temperature=0.7,
-            max_tokens=150 # ローカルモデルに合わせて調整が必要な場合あり
+            max_tokens=300 # 長い応答が必要な場合は増やす
         )
-        response_text = completion.choices[0].message.content
-        logger.info(f"Generated response for user {user_id} via LM Studio")
-        logger.debug(f"LM Studio Response content: {response_text}")
+        response_text = completion.choices[0].message.content.strip()
+
+        # --- 応答とユーザーメッセージをDBに保存 ---
+        await db_manager.add_conversation_message(user_id=user_id, role="user", content=user_message)
+        await db_manager.add_conversation_message(user_id=user_id, role="assistant", content=response_text)
+
+        logger.info(f"[User:{user_id}] Generated response via LM Studio.")
+        logger.debug(f"[User:{user_id}] LM Studio Response content: {response_text}")
         return response_text
 
     except openai.APIConnectionError as e:
-         logger.error(f"Failed to connect to LM Studio at {LM_STUDIO_URL}. Is it running? {e}")
+         logger.error(f"[User:{user_id}] Failed to connect to LM Studio at {LM_STUDIO_URL}. Is it running? {e}")
          return "ごめんなさい、ローカルAIに接続できませんでした。LM Studioが起動しているか確認してください。"
+    except openai.NotFoundError as e:
+        logger.error(f"[User:{user_id}] Model '{LM_STUDIO_MODEL}' not found on LM Studio: {e}")
+        return f"ごめんなさい、LM Studioでモデル '{LM_STUDIO_MODEL}' が見つかりませんでした。LM Studioで正しいモデルがロードされているか確認してください。"
+    except openai.APITimeoutError as e:
+        logger.error(f"[User:{user_id}] LM Studio request timed out: {e}")
+        return "ごめんなさい、ローカルAIからの応答が時間内に返ってきませんでした。モデルの処理が重いか、LM Studioに問題があるかもしれません。"
     except Exception as e:
-        # API呼び出し中の他のエラー (モデルが見つからない、タイムアウトなど)
-        logger.error(f"LM Studio API error for user {user_id}: {e}")
-        # エラーメッセージに詳細が含まれる場合がある
+        logger.error(f"[User:{user_id}] LM Studio API error: {e}", exc_info=True) # exc_info=True でトレースバックも記録
         error_detail = str(e)
-        if "model_not_found" in error_detail.lower():
-             return f"ごめんなさい、LM Studioで指定されたモデルが見つかりませんでした。現在ロードされているモデルを確認してください。(エラー詳細: {error_detail})"
-        return f"ごめんなさい、ローカルAIでエラーが発生しました。(詳細: {error_detail})"
-    
+        # エラーメッセージにJinjaエラーが含まれているかチェック
+        if "Error rendering prompt with jinja template" in error_detail and "roles must alternate" in error_detail:
+            logger.error("[User:{user_id}] Detected role alternation error possibly due to history format.")
+            # ユーザーに直接詳細を見せるのは避けた方が良い場合もある
+            # return f"ごめんなさい、会話履歴の形式に問題が発生した可能性があります。 '/clear_history' を試してみてください。(詳細: {error_detail})"
+            return "ごめんなさい、会話履歴の形式に問題が発生した可能性があります。`/clear_history` コマンドを試してみてください。"
+        # その他の予期せぬエラー
+        return f"ごめんなさい、ローカルAIで予期せぬエラーが発生しました。ログを確認してください。"
