@@ -1,176 +1,168 @@
-# llm_handler.py
-import os
-import re
-import json
-import openai
+# db_manager.py
+import aiosqlite
 import logging
-from dotenv import load_dotenv
-import db_manager # db_manager.py をインポート
+import datetime
 
-load_dotenv()
+DATABASE = 'bot_database.db'
+logger = logging.getLogger('discord') # discord.pyのロガーを使う
 
-# --- LM Studio 設定 ---
-LM_STUDIO_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1") # デフォルト値追加
-LM_STUDIO_API_KEY = os.getenv("LM_STUDIO_API_KEY", "lm-studio") # デフォルト値または.envから
-LM_STUDIO_MODEL_RESPONSE = os.getenv("LM_STUDIO_MODEL_RESPONSE", "loaded-model") # .envから、なければ仮の値
-LM_STUDIO_MODEL_REQUEST = os.getenv("LM_STUDIO_MODEL_REQUEST", "loaded-model") # .envから、なければ仮の値
-CONVERSATION_HISTORY_LIMIT = int(os.getenv("CONVERSATION_HISTORY_LIMIT", 10)) # 履歴件数制限 (デフォルト10件)
-
-getTag_system_prompt = """
-あなたは `data.json` の `tags` から、ユーザーの  
-"Situation": { "age": 16, "standing": "自分のことをあまり知らない", "location": "自宅", "time": "夜", "mood": "不安", "goal": "自分を知りたい", "trigger": "自分が図書館で機械学習の本を読んでいる時" }
-
-pgsql
-コピーする
-編集する
-の内容に関連するタグを選び、以下のような JSON で返してください。
-
-```json
-{
-  "selected_tags": [
-    "感情のトリガー",
-    "自己認識",
-    …
-  ]
-}
-```
-"""
-
-logger = logging.getLogger('discord') # discord.py のロガーを使用
-
-# --- OpenAI クライアントの初期化 (LM Studio 用) ---
-client = openai.AsyncOpenAI(
-    base_url=LM_STUDIO_URL,
-    api_key=LM_STUDIO_API_KEY,
-)
-logger.info(f"Using LM Studio endpoint: {LM_STUDIO_URL}")
-logger.info(f"Using LM Studio model (placeholder): {LM_STUDIO_MODEL_RESPONSE,LM_STUDIO_MODEL_REQUEST}") # モデル名を確認用にログ出力
-logger.info(f"Conversation history limit: {CONVERSATION_HISTORY_LIMIT}")
-
-async def generate_response(user_id: int, user_message: str, user_db_info: dict) -> str:
-    """ユーザー情報とメッセージ、会話履歴に基づいてLLMで応答を生成する (LM Studio版)"""
-    # --- プロンプトの組み立て ---
-    system_prompt = "あなたはユーザーの分身として応答する人間です。\n"
-    system_prompt += "以下のユーザー情報を参考に、その人になりきって自然に会話してください。\n"
-
-    if user_db_info:
-        system_prompt += "\n--- ユーザー情報 ---\n"
-        for key, value in user_db_info.items():
-             if key == 'habit':
-                 system_prompt += f"- 口癖や文体: {value}\n"
-             elif key == 'likes':
-                 system_prompt += f"- 好きなもの: {value}\n"
-             elif key == 'profile':
-                 system_prompt += f"- プロフィール: {value}\n"
-             elif key == 'tone':
-                 system_prompt += f"- 話し方のトーン: {value}\n"
-             else:
-                 system_prompt += f"- {key}: {value}\n"
-        system_prompt += "--- ここまで ---\n"
-    else:
-        system_prompt += "現在、ユーザー情報は登録されていません。一般的な応答をしてください。\n"
-
-    system_prompt += "\nユーザーへの応答だけを生成してください。"
-
-    logger.debug(f"[User:{user_id}] System Prompt:\n{system_prompt}")
-    logger.debug(f"[User:{user_id}] User Message: {user_message}")
-
-    # --- 会話履歴の取得 ---
-    past_history = await db_manager.get_conversation_history(user_id=user_id, limit=CONVERSATION_HISTORY_LIMIT)
-    logger.debug(f"[User:{user_id}] Retrieved {len(past_history)} past messages: {past_history}")
-
-    # --- 履歴フィルタリング (役割の交互性を保証) ---
-    filtered_history = []
-    if past_history:
-        # 最初のメッセージが 'assistant' なら削除 (system の次は user を期待)
-        # Note: LM Studio のテンプレートによっては assistant 開始でも良い場合がある
-        if past_history[0]['role'] == 'assistant':
-            logger.debug("[User:{user_id}] History starts with 'assistant', removing first message.")
-            past_history = past_history[1:]
-
-    # 交互になるようにフィルタリング
-    last_role = 'system' # 初期状態は system の後とみなす
-    for i, msg in enumerate(past_history):
-        # 直前の役割と同じならスキップ (エラーの原因)
-        if msg['role'] == last_role:
-             logger.warning(f"[User:{user_id}] Skipping consecutive role '{msg['role']}' at index {i} in history.")
-             continue
-        # system が履歴に含まれていたらスキップ
-        if msg['role'] == 'system':
-             logger.warning(f"[User:{user_id}] Skipping unexpected 'system' role at index {i} in history.")
-             continue
-        # role が user/assistant 以外ならスキップ (念のため)
-        if msg['role'] not in ('user', 'assistant'):
-             logger.warning(f"[User:{user_id}] Skipping invalid role '{msg['role']}' at index {i} in history.")
-             continue
-
-        filtered_history.append(msg)
-        last_role = msg['role']
-
-    # 履歴の最後が 'user' の場合、それも削除 (次の user メッセージと連続するため)
-    if filtered_history and filtered_history[-1]['role'] == 'user':
-        logger.debug("[User:{user_id}] History ends with 'user', removing last message to prevent conflict.")
-        # filtered_history.pop()
-
-    logger.debug(f"[User:{user_id}] Filtered history ({len(filtered_history)} messages): {filtered_history}")
-
-    # --- メッセージリストの構築 ---
-    messages = []
-    messages.append({"role": "system", "content": system_prompt})
-    messages.extend(filtered_history)
-    messages.append({"role": "user", "content": user_message})
-
-    logger.debug(f"[User:{user_id}] Messages prepared for LLM (total {len(messages)} items): {messages}")
-
-    
-    # --- LM Studio API呼び出し ---
-    async def LM_STUDIO_CALL(MODEL:str,messages:list):
-        try:
-            completion = await client.chat.completions.create(
-                model=MODEL,
-                messages=messages, # 修正されたメッセージリストを使用
-                temperature=0.7,
-                max_tokens=300 # 長い応答が必要な場合は増やす
+async def initialize_database():
+    """データベースを初期化し、必要なテーブルを作成する"""
+    async with aiosqlite.connect(DATABASE) as db:
+        # ユーザー設定などを保存するテーブル
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS user_info (
+                user_id INTEGER NOT NULL,
+                info_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                PRIMARY KEY (user_id, info_type)
             )
-            response_text = completion.choices[0].message.content.strip()
+        ''')
+        # LLMの会話履歴を保存するテーブル
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS conversation_history (
+                message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                role TEXT NOT NULL CHECK(role IN ('system', 'user', 'assistant')),
+                content TEXT NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        # user_id と timestamp にインデックスを作成して検索を高速化
+        await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_conv_history_user_id_timestamp
+            ON conversation_history (user_id, timestamp)
+        ''')
+        await db.commit()
+        logger.info("Database initialized with user_info and conversation_history tables.")
 
-            # --- 応答とユーザーメッセージをDBに保存 ---
-            await db_manager.add_conversation_message(user_id=user_id, role="user", content=user_message)
-            await db_manager.add_conversation_message(user_id=user_id, role="assistant", content=response_text)
+# --- User Info Functions ---
 
-            logger.info(f"[User:{user_id}] Generated response via LM Studio.")
-            logger.debug(f"[User:{user_id}] LM Studio Response content: {response_text}")
-            return response_text
-
-        except openai.APIConnectionError as e:
-            logger.error(f"[User:{user_id}] Failed to connect to LM Studio at {LM_STUDIO_URL}. Is it running? {e}")
-            return "ごめんなさい、ローカルAIに接続できませんでした。LM Studioが起動しているか確認してください。"
-        except openai.NotFoundError as e:
-            logger.error(f"[User:{user_id}] Model '{MODEL}' not found on LM Studio: {e}")
-            return f"ごめんなさい、LM Studioでモデル '{MODEL}' が見つかりませんでした。LM Studioで正しいモデルがロードされているか確認してください。"
-        except openai.APITimeoutError as e:
-            logger.error(f"[User:{user_id}] LM Studio request timed out: {e}")
-            return "ごめんなさい、ローカルAIからの応答が時間内に返ってきませんでした。モデルの処理が重いか、LM Studioに問題があるかもしれません。"
+async def add_user_info(user_id: int, info_type: str, content: str):
+    """ユーザー情報を追加または更新する"""
+    async with aiosqlite.connect(DATABASE) as db:
+        try:
+            await db.execute('''
+                INSERT INTO user_info (user_id, info_type, content)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id, info_type) DO UPDATE SET content = excluded.content
+            ''', (user_id, info_type, content))
+            await db.commit()
+            logger.info(f"Added/Updated info for user {user_id}: type='{info_type}'")
+            return True
         except Exception as e:
-            logger.error(f"[User:{user_id}] LM Studio API error: {e}", exc_info=True) # exc_info=True でトレースバックも記録
-            error_detail = str(e)
-            # エラーメッセージにJinjaエラーが含まれているかチェック
-            if "Error rendering prompt with jinja template" in error_detail and "roles must alternate" in error_detail:
-                logger.error("[User:{user_id}] Detected role alternation error possibly due to history format.")
-                # ユーザーに直接詳細を見せるのは避けた方が良い場合もある
-                # return f"ごめんなさい、会話履歴の形式に問題が発生した可能性があります。 '/clear_history' を試してみてください。(詳細: {error_detail})"
-                return "ごめんなさい、会話履歴の形式に問題が発生した可能性があります。`/clear_history` コマンドを試してみてください。"
-            # その他の予期せぬエラー
-            return f"ごめんなさい、ローカルAIで予期せぬエラーが発生しました。ログを確認してください。"
+            logger.error(f"Error adding/updating user info for {user_id}, type {info_type}: {e}")
+            return False
 
-    async def RequestAI():
-        
-        request_text = await LM_STUDIO_CALL(MODEL=LM_STUDIO_MODEL_REQUEST)
-        # ```json ... ``` の中を取り出す
-        match = re.search(r'```json\s*(\{[\s\S]*?\})\s*```', request_text)
-        if match:
-            json_str = match.group(1)
-            data = json.loads(json_str)
-            print(data)
-        else:
-            print("JSONが見つかりませんでした")  
+async def get_user_info(user_id: int) -> dict:
+    """特定のユーザーのすべての設定情報を取得する"""
+    user_data = {}
+    async with aiosqlite.connect(DATABASE) as db:
+        try:
+            async with db.execute('SELECT info_type, content FROM user_info WHERE user_id = ?', (user_id,)) as cursor:
+                async for row in cursor:
+                    user_data[row[0]] = row[1]
+            logger.debug(f"Retrieved info for user {user_id}: {user_data}")
+            return user_data
+        except Exception as e:
+            logger.error(f"Error getting user info for {user_id}: {e}")
+            return {} # エラー時は空辞書を返す
+
+async def delete_user_info(user_id: int):
+    """特定のユーザーのすべての設定情報を削除する"""
+    async with aiosqlite.connect(DATABASE) as db:
+        try:
+            await db.execute('DELETE FROM user_info WHERE user_id = ?', (user_id,))
+            await db.commit()
+            logger.info(f"Deleted all info for user {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting user info for {user_id}: {e}")
+            return False
+
+async def get_specific_user_info(user_id: int, info_type: str) -> str | None:
+    """特定のユーザーの特定のタイプの情報を取得する"""
+    async with aiosqlite.connect(DATABASE) as db:
+        try:
+            async with db.execute('SELECT content FROM user_info WHERE user_id = ? AND info_type = ?', (user_id, info_type)) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
+        except Exception as e:
+            logger.error(f"Error getting specific info for user {user_id}, type {info_type}: {e}")
+            return None
+
+# --- Conversation History Functions ---
+
+async def add_conversation_message(user_id: int, role: str, content: str):
+    """会話履歴に新しいメッセージを追加する"""
+    async with aiosqlite.connect(DATABASE) as db:
+        try:
+            await db.execute('''
+                INSERT INTO conversation_history (user_id, role, content)
+                VALUES (?, ?, ?)
+            ''', (user_id, role, content))
+            await db.commit()
+            logger.debug(f"Added conversation message for user {user_id}: role='{role}'")
+            return True
+        except Exception as e:
+            logger.error(f"Error adding conversation message for user {user_id}: {e}")
+            return False
+
+async def get_conversation_history(user_id: int, limit: int | None = None) -> list[dict[str, str]]:
+    """特定のユーザーの会話履歴を取得する (時系列順、オプションで件数制限)"""
+    history = []
+    query = '''
+        SELECT role, content
+        FROM conversation_history
+        WHERE user_id = ?
+        ORDER BY timestamp ASC
+    '''
+    params = (user_id,)
+
+    if limit is not None and limit > 0:
+        # 件数制限がある場合、最新のN件を取得するために逆順で取得し、後でPython側で反転させる
+        # または、サブクエリやウィンドウ関数を使う方法もあるが、シンプルにするため取得後に反転する
+        # -> やはりSQLで最新N件を取得するのが効率的なので、ORDER BY timestamp DESC LIMIT ? を使う
+        query = '''
+            SELECT role, content FROM (
+                SELECT role, content, timestamp
+                FROM conversation_history
+                WHERE user_id = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+            ) ORDER BY timestamp ASC
+        '''
+        params = (user_id, limit)
+        # logger.debug(f"Retrieving last {limit} messages for user {user_id}")
+    # else:
+        # logger.debug(f"Retrieving all messages for user {user_id}")
+
+
+    async with aiosqlite.connect(DATABASE) as db:
+        try:
+            async with db.execute(query, params) as cursor:
+                async for row in cursor:
+                    history.append({'role': row[0], 'content': row[1]})
+            logger.debug(f"Retrieved {len(history)} conversation messages for user {user_id} (limit={limit})")
+            return history
+        except Exception as e:
+            logger.error(f"Error getting conversation history for user {user_id}: {e}")
+            return [] # エラー時は空リストを返す
+
+async def delete_conversation_history(user_id: int):
+    """特定のユーザーの会話履歴をすべて削除する"""
+    async with aiosqlite.connect(DATABASE) as db:
+        try:
+            await db.execute('DELETE FROM conversation_history WHERE user_id = ?', (user_id,))
+            await db.commit()
+            # 削除された行数を取得（オプション）
+            changes = db.total_changes
+            logger.info(f"Deleted conversation history for user {user_id}. Rows affected: {changes}")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting conversation history for user {user_id}: {e}")
+            return False
+
+# 注意: get_specific_user_history 関数は削除しました。
+# 特定のメッセージが必要な場合は、get_conversation_history で全件取得するか、
+# message_id で検索する関数を別途実装してください。

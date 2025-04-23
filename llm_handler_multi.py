@@ -3,6 +3,7 @@ import os
 import openai
 import logging
 import json
+import db_manager
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,7 +24,7 @@ LM_STUDIO_MODEL_RESPONSE = os.getenv("LM_STUDIO_MODEL_RESPONSE") # または元�
 logger = logging.getLogger('discord') # または任意のロガー名
 # basicConfigを一度だけ設定（既にあれば不要）
 if not logger.hasHandlers():
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # --- OpenAI クライアント初期化 (LM Studio 用) ---
 # 全ステップで同じクライアントを使い、モデル名を都度指定する
@@ -156,45 +157,31 @@ async def search_user_info_by_tags(user_id: int, tags: list[str]) -> dict:
     logger.info(f"Searching DB for user {user_id} with tags: {tags}")
     # --- ここからダミー実装 ---
     # 本来はここでDBに接続し、tagsに関連する情報を取得する
+    
+    
+    user_db = {}
+    #　AIが出したTagで確認する
+    for kind in tags:
+        temp_tag_value = await db_manager.get_specific_user_info(user_id=user_id,info_type=kind)
+        
+        if temp_tag_value != None:
+            user_db[kind] = temp_tag_value
+            logger.debug(f"Searching DB for key {kind} value: {user_db[kind]}")
+        else:
+            logger.info(f"Not Found DB for key {kind} value: None")
+        
+        
+
+    # system_prompt += "\nユーザーへの応答だけを生成してください。"
     # 例: SELECT profile, habit, likes FROM user_profiles WHERE user_id = ? AND category IN (?, ?, ...)
     #     または、タグごとに関連情報を取得するなど
-    dummy_data = {
-        "profile": "読書が好きで、特に技術書に興味がある。少し内向的かもしれない。",
-        "habit": "考え事をするとき、指を机で叩く癖がある。",
-        "likes": "静かな場所、図書館、新しい知識",
-        "感情のトリガー": "難しい問題に直面すると不安を感じやすいが、解決策を見つけると興奮する。",
-        "自己認識": "自分のことをまだよく理解できていないと感じている。",
-        # 他のタグに対応する情報があれば追加...
-    }
-    # 取得したタグに関連する情報だけをフィルタリングする（例）
-    filtered_data = {}
-    if "エラー：" in "".join(tags): # タグ選択でエラーが発生した場合
-         filtered_data["error"] = "タグ選択中にエラーが発生したため、関連情報が見つかりませんでした。"
-         return filtered_data
-
-    for tag in tags:
-        # タグ名をキーとして単純に検索する例（実際はもっと複雑なマッピングが必要かも）
-        
-        # 例えば "性格の特徴" タグなら profile や tone に関連するなど
-        if tag == "自己認識" and "自己認識" in dummy_data:
-            filtered_data["自己認識"] = dummy_data["自己認識"]
-        elif tag == "感情のトリガー" and "感情のトリガー" in dummy_data:
-            filtered_data["感情のトリガー"] = dummy_data["感情のトリガー"]
-        elif tag == "趣味・興味" and "likes" in dummy_data: # "趣味・興味" タグと likes 項目を関連付け
-            filtered_data["趣味・興味"] = dummy_data["likes"]
-        elif tag == "性格の特徴" and "profile" in dummy_data: # "性格の特徴" タグと profile 項目を関連付け
-             filtered_data["性格の特徴"] = dummy_data["profile"] # profileの一部を使うなど工夫も可能
-        # 他のタグとDB項目のマッピングを追加...
-
-    if not filtered_data:
-        filtered_data["info"] = "関連する情報は見つかりませんでした。" # 何も見つからなかった場合
-
-    logger.info(f"Dummy DB search result for user {user_id}: {filtered_data}")
+    
+    logger.info(f"Dummy DB search result for user {user_id}: {user_db}")
     # --- ダミー実装ここまで ---
-    return filtered_data
+    return user_db
 
 # --- Step 3 & 4: 応答生成関数 (改訂版) ---
-async def generate_final_response(user_id: int, user_message: str, relevant_user_info: dict) -> str:
+async def generate_final_response(user_id: int, user_message: str, relevant_user_info: dict,situation_info:dict) -> str:
     """
     選択されたタグに基づいて取得したユーザー情報とメッセージを元に、応答生成LLMで応答を生成する。
     """
@@ -211,6 +198,23 @@ async def generate_final_response(user_id: int, user_message: str, relevant_user
         # relevant_user_info の内容を表示する
         # キーがタグ名になっていることを想定
         for key, value in relevant_user_info.items():
+             if key == "error": # DB検索前のエラー情報
+                  system_prompt += f"- システム情報: {value}\n"
+             elif key == "info": # DB検索で見つからなかった情報
+                  system_prompt += f"- システム情報: {value}\n"
+             else:
+                 # タグ名 (key) をそのまま説明として使う
+                 system_prompt += f"- {key}: {value}\n"
+        system_prompt += "--- ここまで ---\n"
+    else:
+        # relevant_user_infoが空の場合（タグ選択失敗 or DB検索結果なし）
+        system_prompt += "現在、参照できるユーザー情報がありません。一般的な応答をしてください。\n"
+        # もしタグ選択失敗のエラーメッセージがあれば、それも考慮する？ (今はしていない)
+    if situation_info:
+        system_prompt += "\n--- シチュエーション情報 ---\n"
+        # relevant_user_info の内容を表示する
+        # キーがタグ名になっていることを想定
+        for key, value in situation_info.items():
              if key == "error": # DB検索前のエラー情報
                   system_prompt += f"- システム情報: {value}\n"
              elif key == "info": # DB検索で見つからなかった情報
@@ -266,35 +270,34 @@ async def process_user_request(user_id: int, user_message: str, situation: dict)
     # Step 1: 関連タグを選択
     selected_tags = await select_relevant_tags(situation)
     logger.info(f"Step 1 completed for user {user_id}. Selected tags: {selected_tags}")
-
+    # user_db = await db_manager.get_user_info(user_id=user_id)
+    
+    
     # タグ選択でエラーが発生した場合、それをユーザー情報として扱う
     if selected_tags and "エラー：" in selected_tags[0]:
         relevant_user_info = {"error": selected_tags[0]} # エラーメッセージを情報辞書に入れる
     else:
         # Step 2: タグに基づいてDB情報を検索 (ダミー)
         relevant_user_info = await search_user_info_by_tags(user_id, selected_tags)
+        print(f"\n\n\n[DB-DATA]{relevant_user_info}\n\n\n")
+        # print("\n\n\n[DB-DATA]"+{relevant_user_info}+"\n\n\n")
         logger.info(f"Step 2 completed for user {user_id}. Relevant info found: {list(relevant_user_info.keys())}")
 
     # Step 3 & 4: 最終応答を生成
-    final_response = await generate_final_response(user_id, user_message, relevant_user_info)
+    final_response = await generate_final_response(user_id, user_message, relevant_user_info,situation_info=situation)
     logger.info(f"Step 3 & 4 completed for user {user_id}.")
 
     return final_response
 
 # --- 実行例 ---
 async def main():
+    with open("test_config.json","r",encoding="utf-8")as f:
+        test_data = json.load(f)        
+
     # ユーザーからのメッセージと状況 (例)
-    user_id = 123
-    user_message = "最近、自分が何を考えているのかよくわからなくなるんだ..."
-    situation_data = {
-        "age": 16,
-        "standing": "自分のことをあまり知らない",
-        "location": "自宅",
-        "time": "夜",
-        "mood": "不安",
-        "goal": "自分を知りたい",
-        "trigger": "自分が図書館で機械学習の本を読んでいる時"
-    }
+    user_id = test_data["userID"]
+    user_message = test_data["user_message"]
+    situation_data = test_data["situation_data"]
 
     # 処理を実行
     response = await process_user_request(user_id, user_message, situation_data)
