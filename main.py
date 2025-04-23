@@ -1,4 +1,5 @@
 # main.py
+import time
 import os
 import discord
 from discord.ext import commands
@@ -12,7 +13,7 @@ import asyncio
 import signal
 import sys
 import platform # プラットフォーム判定用
-
+import llm_handler_multi
 # --- 初期設定 ---
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -21,7 +22,7 @@ LOG_FILE = "bot.log"
 
 # --- ロガー設定 ---
 log_formatter = logging.Formatter('%(asctime)s [%(levelname)-5.5s] [%(name)-12.12s]: %(message)s')
-log_level = logging.INFO
+log_level = logging.DEBUG
 
 root_logger = logging.getLogger()
 root_logger.setLevel(log_level)
@@ -230,81 +231,130 @@ async def clear_history_command(interaction: discord.Interaction):
         await interaction.response.send_message("会話履歴を全て削除しました。", ephemeral=True)
     else:
         await interaction.response.send_message("会話履歴の削除中にエラーが発生しました。", ephemeral=True)
+
+
+import llm_handler_multi # 提供されたコードに合わせてこちらを使用 (必要なら llm_handler_multistep に変更)
+
 @bot.tree.command(name="chat", description="AIアバターに話しかけます。")
 @app_commands.describe(message="AIアバターへのメッセージ")
 async def chat_command(interaction: discord.Interaction, message: str):
-    user_id = interaction.user.id
-    await interaction.response.defer(thinking=True, ephemeral=False)
+    user_id = interaction.user.id # user_id は defer 前に取得しておいて問題ない
+
+    # --- 最優先で defer を試みる ---
     try:
-        user_db_info = await db_manager.get_user_info(user_id)
-        ai_response = await llm_handler.generate_response(user_id, message, user_db_info)
+        # defer が成功したかどうかをフラグで持つ
+        logger.debug(f"[{time.perf_counter()}] chat_command entered.")
+        logger.debug(f"[{time.perf_counter()}] Attempting to defer.")   
+        defer_successful = False
+        await interaction.response.defer(thinking=True, ephemeral=False)
+        defer_successful = True
+        logger.debug(f"[{time.perf_counter()}] Defer successful. Continuing...")
 
-        # 応答メッセージ全体を組み立てる
-        # ユーザーのメッセージ引用部分も文字数にカウントされることに注意
-        user_quote = f"> {interaction.user.mention}: {message}\n\n"
-        full_response_text = ai_response # LLMの応答のみを変数に
-
-        # Discordの文字数制限
-        MAX_CHARS = 2000
-
-        # --- メッセージ分割ロジック ---
-        messages_to_send = []
-        # 最初のメッセージにはユーザーの引用を含める
-        first_message_content = user_quote + full_response_text
-
-        if len(first_message_content) <= MAX_CHARS:
-            # 2000文字以下ならそのまま送信
-            messages_to_send.append(first_message_content)
-        else:
-            # 2000文字を超える場合は分割する
-            # 最初のチャンク (引用符 + 応答の冒頭)
-            remaining_chars_first = MAX_CHARS - len(user_quote)
-            if remaining_chars_first <= 0: # 引用だけで2000文字超える場合(レアケース)
-                 logger.warning("User quote itself exceeds character limit.")
-                 # 引用符だけ送るか、エラーにするかなど対応が必要
-                 messages_to_send.append(user_quote[:MAX_CHARS]) # 強制的に切り詰め
-                 # 応答部分は別途送る (ただし引用なし)
-                 response_part = full_response_text
-            else:
-                 messages_to_send.append(user_quote + full_response_text[:remaining_chars_first])
-                 response_part = full_response_text[remaining_chars_first:]
-
-            # 残りの応答部分を2000文字ごとに分割
-            # (ここでは単純な文字数分割。改行や単語境界を考慮するとより良い)
-            while len(response_part) > 0:
-                chunk = response_part[:MAX_CHARS]
-                messages_to_send.append(chunk)
-                response_part = response_part[MAX_CHARS:]
-
-        # --- 分割したメッセージを送信 ---
-        if not messages_to_send:
-             logger.warning(f"No messages to send for user {user_id} after processing.")
-             await interaction.followup.send("(空の応答)") # 何か送る必要がある
-             return
-
-        # 最初のチャンクは followup.send で送信
-        await interaction.followup.send(messages_to_send[0])
-
-        # 2番目以降のチャンクがある場合は、続けて送信
-        # interaction.followup.send は複数回呼び出せる
-        if len(messages_to_send) > 1:
-            for chunk in messages_to_send[1:]:
-                 # await interaction.channel.send(chunk) # こちらでも良い
-                 await interaction.followup.send(chunk) # followupを続ける
-
+        logger.info(f"Successfully deferred interaction for user {user_id}.")
+    except discord.errors.NotFound:
+         # 3秒ルールに間に合わず、Interaction が無効になった場合
+         logger.error(f"Failed to defer interaction for user {user_id}. Interaction likely timed out before defer.", exc_info=True)
+         # この場合、Interaction は無効なので、これ以上の応答は不可能
+         # 処理を中断して終了
+         return
     except Exception as e:
-        logger.error(f"Error during chat command for user {user_id}: {e}", exc_info=True)
+         # その他の defer 呼び出し時の予期せぬエラー
+         logger.error(f"An unexpected error occurred during defer for user {user_id}: {e}", exc_info=True)
+         # 同上、処理を中断して終了
+         return
+
+    # defer が成功した場合のみ、以降の重い処理に進む
+    if defer_successful:
         try:
-            # defer 済みの interaction に対するエラー通知
-            if interaction.response.is_done():
-                 await interaction.followup.send("申し訳ありません、応答の生成または送信中にエラーが発生しました。", ephemeral=True)
+            # --- LLMハンドラに渡す「状況」情報を作成 (llm_handler_multi が受け取るか確認) ---
+            # llm_handler_multi.py の process_user_request のシグネチャに合わせて調整
+            situation_data = {
+                "user_id": str(user_id),
+                "user_name": interaction.user.display_name,
+                "channel_type": str(interaction.channel.type),
+                "guild_name": interaction.guild.name if interaction.guild else "DM",
+                "channel_name": interaction.channel.name if interaction.channel else "Direct Message",
+                "user_message": message,
+                # 必要に応じて追加
+            }
+            logger.debug(f"Situation data prepared for LLM: {situation_data}")
+
+            # user_db_info = await db_manager.get_user_info(user_id) # llm_handler_multistep が内部でやるなら不要
+
+            # --- 複数ステップのLLM処理を実行 ---
+            # llm_handler_multi.process_user_request の実際のシグネチャに合わせて引数を調整
+            # 例: situationを渡す場合 -> ai_response = await llm_handler_multi.process_user_request(user_id=user_id, user_message=message, situation=situation_data)
+            # 例: situationを渡さない場合 -> ai_response = await llm_handler_multi.process_user_request(user_id=user_id, user_message=message) # 現在のコードはこの形
+            ai_response = await llm_handler_multi.process_user_request(user_id=user_id,user_message=message)
+
+
+            logger.info(f"LLM processing completed for user {user_id}. Response generated.")
+
+            # 応答メッセージ全体を組み立てる
+            # ユーザーのメッセージ引用部分も文字数にカウントされることに注意
+            user_quote = f"> {interaction.user.mention}: {message}\n\n"
+            full_response_text = ai_response # LLMの応答のみを変数に
+
+            # Discordの文字数制限
+            MAX_CHARS = 2000
+
+            # --- メッセージ分割ロジック ---
+            messages_to_send = []
+            # 最初のメッセージにはユーザーの引用を含める
+            first_message_content = user_quote + full_response_text
+
+            if len(first_message_content) <= MAX_CHARS:
+                # 2000文字以下ならそのまま送信
+                messages_to_send.append(first_message_content)
             else:
-                 # defer 前にエラーが発生した場合 (可能性は低い)
-                 await interaction.response.send_message("申し訳ありません、コマンドの処理中にエラーが発生しました。", ephemeral=True)
-        except discord.NotFound:
-            logger.warning(f"Could not send error followup for chat command to user {user_id}, interaction invalid.")
-        except Exception as inner_e:
-            logger.error(f"Failed to send error followup message to user {user_id}: {inner_e}")
+                # 2000文字を超える場合は分割する
+                # 最初のチャンク (引用符 + 応答の冒頭)
+                remaining_chars_first = MAX_CHARS - len(user_quote)
+                if remaining_chars_first <= 0: # 引用だけで2000文字超える場合(レアケース)
+                     logger.warning("User quote itself exceeds character limit.")
+                     messages_to_send.append(user_quote[:MAX_CHARS]) # 強制的に切り詰め
+                     response_part = full_response_text
+                else:
+                     messages_to_send.append(user_quote + full_response_text[:remaining_chars_first])
+                     response_part = full_response_text[remaining_chars_first:]
+
+                # 残りの応答部分を2000文字ごとに分割
+                while len(response_part) > 0:
+                    chunk = response_part[:MAX_CHARS]
+                    messages_to_send.append(chunk)
+                    response_part = response_part[MAX_CHARS:]
+
+            # --- 分割したメッセージを送信 ---
+            if not messages_to_send:
+                 logger.warning(f"No messages to send for user {user_id} after processing.")
+                 # defer成功後なので followup を使う
+                 await interaction.followup.send("(空の応答)") # 何か送る必要がある
+                 return
+
+            # 最初のチャンクは followup.send で送信 (defer成功後)
+            await interaction.followup.send(messages_to_send[0])
+            logger.debug(f"Sent first message chunk via followup.send to user {user_id}")
+
+
+            # 2番目以降のチャンクがある場合は、続けて followup.send で送信
+            if len(messages_to_send) > 1:
+                for chunk in messages_to_send[1:]:
+                     await interaction.followup.send(chunk) # followupを続ける
+                     logger.debug(f"Sent subsequent message chunk via followup.send to user {user_id}")
+
+
+        except Exception as e:
+            # defer は成功しているはずなので followup でエラーを通知
+            logger.error(f"Error during chat command processing (after defer) for user {user_id}: {e}", exc_info=True)
+            try:
+                 # followup は defer 成功後であれば使用可能
+                 await interaction.followup.send("申し訳ありません、応答の生成中にエラーが発生しました。", ephemeral=True)
+            except discord.NotFound:
+                 # followup に失敗した場合 (deferは成功したが、その後にInteractionが無効になったなど)
+                 logger.warning(f"Could not send error followup after successful defer for user {user_id}, interaction invalid or expired.")
+            except Exception as inner_e:
+                 # エラーメッセージ送信中にさらにエラー
+                 logger.error(f"Failed to send error followup message after initial defer success to user {user_id}: {inner_e}")
 
 # --- Botの実行 ---
 if __name__ == "__main__":

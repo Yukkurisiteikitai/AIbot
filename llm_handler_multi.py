@@ -1,6 +1,7 @@
 # llm_handler_multistep.py
 import os
 import openai
+import re
 import logging
 import json
 import db_manager
@@ -24,7 +25,7 @@ LM_STUDIO_MODEL_RESPONSE = os.getenv("LM_STUDIO_MODEL_RESPONSE") # または元�
 logger = logging.getLogger('discord') # または任意のロガー名
 # basicConfigを一度だけ設定（既にあれば不要）
 if not logger.hasHandlers():
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # --- OpenAI クライアント初期化 (LM Studio 用) ---
 # 全ステップで同じクライアントを使い、モデル名を都度指定する
@@ -262,7 +263,15 @@ async def generate_final_response(user_id: int, user_message: str, relevant_user
 # --- 全体の処理フローをまとめる関数 ---
 import re # JSON抽出のために追加
 
-async def process_user_request(user_id: int, user_message: str, situation: dict) -> str:
+async def process_user_request(user_id: int, user_message: str, situation: dict = {
+        "age": 16,
+        "standing": "自分のことをあまり知らない",
+        "location": "自宅",
+        "time": "夜",
+        "mood": "不安",
+        "goal": "自分を知りたい",
+        "trigger": "自分が図書館で機械学習の本を読んでいる時"
+    }) -> str:
     """
     ユーザーリクエストを処理する一連のステップを実行する。
     1. タグ選択 -> 2. DB検索 -> 3. 応答生成
@@ -301,13 +310,14 @@ async def main():
 
     # 処理を実行
     response = await process_user_request(user_id, user_message, situation_data)
+    # response = await process_user_request(user_id, user_message)
 
     print("\n--- Final Response ---")
     print(response)
     print("--- End ---")
 
-if __name__ == "__main__":
-    import asyncio
-     # --- JSON抽出のための正規表現ライブラリをインポート ---
-    import re # select_relevant_tags 関数内で必要になるため、ここでも import しておくか、関数の上に移動
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     import asyncio
+#     #  --- JSON抽出のための正規表現ライブラリをインポート ---
+#     import re # select_relevant_tags 関数内で必要になるため、ここでも import しておくか、関数の上に移動
+#     asyncio.run(main())
