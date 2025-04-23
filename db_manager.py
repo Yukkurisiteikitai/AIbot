@@ -68,6 +68,7 @@ async def get_user_info(user_id: int) -> dict:
             logger.error(f"Error getting user info for {user_id}: {e}")
             return {} # エラー時は空辞書を返す
 
+
 async def delete_user_info(user_id: int):
     """特定のユーザーのすべての設定情報を削除する"""
     async with aiosqlite.connect(DATABASE) as db:
