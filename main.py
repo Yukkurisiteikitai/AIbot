@@ -8,7 +8,6 @@ import logging
 import logging.handlers
 from dotenv import load_dotenv
 import db_manager
-import llm_handler
 import asyncio
 import signal
 import sys
