@@ -1,4 +1,4 @@
-# main.py
+# main.py HelloWrold
 import time
 import os
 import discord
