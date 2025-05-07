@@ -8,33 +8,30 @@ import logging
 import logging.handlers
 from dotenv import load_dotenv
 import db_manager
-import llm_handler
 import asyncio
 import signal
 import sys
 import platform # プラットフォーム判定用
 import importlib
+
+logger = logging.getLogger("他のげん")
+
+logger.info("HelloWorld")
 # --- 初期設定 ---
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 LM_STUDIO_URL = os.getenv("LM_STUDIO_BASE_URL")
 LOG_FILE = "bot.log"
 
-THINK_SYSTEMS = ["big-five", "mbti", "sfe-original"]
-SELECT_SYSTEM = "big-five"
+THINK_SYSTEMS = ["bigfive", "mbti", "sfe"]
+SELECT_SYSTEM = "bigfive"
 
-# 動的にモジュールをインポート
-try:
-    if SELECT_SYSTEM in THINK_SYSTEMS:
-        # 動的にモジュールをインポート
-        llm_handler_multi = importlib.import_module(f"think_handler.{SELECT_SYSTEM}")
-        logger.info(f"Successfully imported think system: {SELECT_SYSTEM}")
-    else:
-        logger.warning(f"Invalid system selected: {SELECT_SYSTEM}. Defaulting to big-five.")
-        llm_handler_multi = importlib.import_module("think_handler.big-five")
-except ImportError as e:
-    logger.error(f"Error importing think system module: {e}")
-    sys.exit(1)
+log_formatter = logging.Formatter('%(asctime)s [%(levelname)-5.5s] [%(name)-12.12s]: %(message)s')
+log_level = logging.INFO
+
+
+
+    # print(a)
 
 
 # --- ロガー設定 ---
@@ -58,8 +55,22 @@ except Exception as e:
 
 discord_logger = logging.getLogger('discord')
 logger = logging.getLogger('discord.main')
+# 動的にモジュールをインポート
+try:
+    if SELECT_SYSTEM in THINK_SYSTEMS:
+        # 動的にモジュールをインポート
+        llm_handler_multi = importlib.import_module(f"think_handler.{SELECT_SYSTEM}")
+        logger.info(f"Successfully imported think system: {SELECT_SYSTEM}")
+    else:
+        logger.warning(f"Invalid system selected: {SELECT_SYSTEM}. Defaulting to bigfive.Defelt think_system use bigfive.")
+        llm_handler_multi = importlib.import_module("think_handler.bigfive")
+except ImportError as e:
+    logger.error(f"Error importing think system module: {e}")
+    sys.exit(1)
 
-# --- Bot設定 ---
+
+
+# # --- Bot設定 ---
 intents = discord.Intents.default()
 intents.message_content = True
 intents.dm_messages = True
