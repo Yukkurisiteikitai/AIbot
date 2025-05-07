@@ -13,12 +13,29 @@ import asyncio
 import signal
 import sys
 import platform # プラットフォーム判定用
-import llm_handler_multi
+import importlib
 # --- 初期設定 ---
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 LM_STUDIO_URL = os.getenv("LM_STUDIO_BASE_URL")
 LOG_FILE = "bot.log"
+
+THINK_SYSTEMS = ["big-five", "mbti", "sfe-original"]
+SELECT_SYSTEM = "big-five"
+
+# 動的にモジュールをインポート
+try:
+    if SELECT_SYSTEM in THINK_SYSTEMS:
+        # 動的にモジュールをインポート
+        llm_handler_multi = importlib.import_module(f"think_handler.{SELECT_SYSTEM}")
+        logger.info(f"Successfully imported think system: {SELECT_SYSTEM}")
+    else:
+        logger.warning(f"Invalid system selected: {SELECT_SYSTEM}. Defaulting to big-five.")
+        llm_handler_multi = importlib.import_module("think_handler.big-five")
+except ImportError as e:
+    logger.error(f"Error importing think system module: {e}")
+    sys.exit(1)
+
 
 # --- ロガー設定 ---
 log_formatter = logging.Formatter('%(asctime)s [%(levelname)-5.5s] [%(name)-12.12s]: %(message)s')
