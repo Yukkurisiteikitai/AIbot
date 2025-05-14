@@ -14,9 +14,7 @@ import sys
 import platform # プラットフォーム判定用
 import importlib
 
-logger = logging.getLogger("他のげん")
 
-logger.info("HelloWorld")
 # --- 初期設定 ---
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -26,12 +24,9 @@ LOG_FILE = "bot.log"
 THINK_SYSTEMS = ["bigfive", "mbti", "sfe"]
 SELECT_SYSTEM = "bigfive"
 
-log_formatter = logging.Formatter('%(asctime)s [%(levelname)-5.5s] [%(name)-12.12s]: %(message)s')
-log_level = logging.INFO
 
 
 
-    # print(a)
 
 
 # --- ロガー設定 ---
