@@ -31,7 +31,8 @@ https://discord.com/developers/
 ```
 DISCORD_BOT_TOKEN="2で説明したトークンを入れてください"
 LM_STUDIO_BASE_URL="http://localhost:1234/v1" #デフォルト http://localhost:1234/v1
-LM_STUDIO_MODEL="1の項目でダウンロードしたモデル名を入力してください"
+LM_STUDIO_MODEL_REQUEST="軽いモデル名(1~2B)をf書いてください"
+LM_STUDIO_MODEL_RESPONSE="重いしっかりとしたモデル名(12B程度)を書いてください"
 ```
 
  
