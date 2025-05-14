@@ -1,0 +1,4 @@
+{
+    "lite_model":"gemma-1b-it",
+    "heavy_model":"gemma-27b-it"
+}

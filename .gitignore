@@ -4,3 +4,5 @@ bot_database.db
 __pycache__
 bot.log
 test_config.json
+model
+.DS_Store
