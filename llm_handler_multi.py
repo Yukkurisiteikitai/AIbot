@@ -128,7 +128,7 @@ async def select_relevant_tags(situation: dict) -> list[str]:
             max_tokens=200,  # タグリストのJSON出力には十分なはず
             # response_format={"type": "json_object"} # LM Studioが対応していればより確実
         )
-        response_content = completion.choices[0].message.content.strip()
+        response_content = completion.choices[0].message.content.strip() 
         logger.debug(f"Raw response from tag selection model: {response_content}")
 
         # --- JSON パース処理 ---
@@ -307,8 +307,8 @@ async def process_user_request(user_id: int, user_message: str, situation: dict 
         "location": "学校",
         "time": "昼",
         "mood": "不安",
-        "goal": "プレイヤーの状況をしりたい",
-        "trigger": "ゲームのデモをプレイ中"
+        "goal": "最高のゲームを考える",
+        "trigger": "合った"
     }) -> str:
     """
     ユーザーリクエストを処理する一連のステップを実行する。
