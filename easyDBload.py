@@ -22,4 +22,10 @@ print(data)
 
 for key,value in data.items():
     # print(f"{key}:{value}")
+    
+    # check db-null
+    if key == None or value == None: 
+        print(f"[ERROR]NULL\n{key}:{value}")
+        continue
+
     asyncio.run(add_info(info_type=key,content=value))
