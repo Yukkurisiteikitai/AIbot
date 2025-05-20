@@ -1,0 +1,183 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #343541;
+    color: #fff;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.chat-container {
+    display: flex;
+    height: 100vh;
+}
+
+.sidebar {
+    width: 260px;
+    background-color: #202123;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.new-chat {
+    margin-bottom: 1rem;
+}
+
+#newChatBtn {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #343541;
+    border: 1px solid #565869;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#newChatBtn:hover {
+    background-color: #40414f;
+}
+
+.chat-history {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #343541;
+}
+
+.chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.message {
+    display: flex;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.message.user {
+    background-color: #343541;
+    justify-content: flex-end;
+}
+
+.message.assistant {
+    background-color: #444654;
+    justify-content: flex-start;
+}
+
+.message-content {
+    max-width: 800px;
+    line-height: 1.6;
+    padding: 0 1rem;
+}
+
+.message.user .message-content {
+    background-color: #2b2c2f;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.message.assistant .message-content {
+    background-color: #444654;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.copy-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    color: #8e8ea0;
+    cursor: pointer;
+    padding: 0.5rem;
+    width: 32px;
+    height: 32px;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.message:hover .copy-button {
+    opacity: 1;
+}
+
+.copy-button:hover {
+    color: #fff;
+}
+
+.copy-button.copied {
+    color: #10a37f;
+}
+
+.copy-button svg {
+    width: 100%;
+    height: 100%;
+}
+
+.input-container {
+    padding: 1.5rem;
+    background-color: #343541;
+    border-top: 1px solid #565869;
+}
+
+.input-wrapper {
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+}
+
+#userInput {
+    width: 100%;
+    padding: 1rem;
+    padding-right: 3rem;
+    background-color: #40414f;
+    border: 1px solid #565869;
+    border-radius: 4px;
+    color: #fff;
+    resize: none;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+#userInput:focus {
+    outline: none;
+    border-color: #6b6c7b;
+}
+
+#sendBtn {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 0.5rem;
+    width: 32px;
+    height: 32px;
+}
+
+#sendBtn:hover {
+    background-color: #565869;
+    border-radius: 4px;
+}
+
+#sendBtn svg {
+    width: 100%;
+    height: 100%;
+} 
