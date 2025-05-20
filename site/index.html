@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YourselfLM Chat</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="sidebar">
+            <div class="new-chat">
+                <button id="newChatBtn">+ 新しいチャット</button>
+            </div>
+            <div class="chat-history">
+                <!-- チャット履歴がここに表示されます -->
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="chat-messages" id="chatMessages">
+                <!-- メッセージがここに表示されます -->
+            </div>
+            <div class="input-container">
+                <textarea id="userInput" placeholder="メッセージを入力..." rows="1"></textarea>
+                <button id="sendBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 
