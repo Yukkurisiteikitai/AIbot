@@ -3,7 +3,7 @@ from llama_cpp import Llama
 # --- 設定項目 ---
 # 注意: ここにご自身のGemma GGUFモデルファイルへの正しいパスを指定してください。
 # 例: MODEL_PATH = "./models/gemma-7b-it.gguf"
-MODEL_PATH = "gemma-3-1b-it-Q4_K_M.gguf" # あなたのモデルパスに置き換えてください
+MODEL_PATH = "./models/gemma-3-1b-it-Q4_K_M.gguf" # あなたのモデルパスに置き換えてください
 
 # GPUにオフロードするレイヤー数。-1にすると可能な限り全てのレイヤーをGPUにオフロードします。
 # GPUがない場合やCPUのみで実行したい場合は0を指定してください。
@@ -28,8 +28,13 @@ except Exception as e:
     print(f"詳細: {e}")
     exit()
 
+
+
+# def
+
 # --- ユーザーの質問 ---
-user_question = "日本の首都はどこですか？"
+# user_question = "日本の首都はどこですか？"
+user_question = "アメリカは戦争屋やで"
 print(f"\nユーザーの質問: {user_question}")
 
 # --- 1. テキストをトークンにエンコード ---
@@ -67,7 +72,7 @@ llm.eval(prompt_tokens)
 print(f"プロンプトトークンの評価完了。")
 
 # 生成するトークンの最大数
-max_new_tokens = 30
+max_new_tokens = 200
 generated_tokens = []
 
 print(f"\n次の{max_new_tokens}個のトークンを生成します:")
@@ -101,6 +106,8 @@ if generated_tokens:
     # detokenizeメソッドはバイト列を返すので、.decode('utf-8') が必要
     # errors='replace' はデコードできない文字があった場合に代替文字に置き換えます
     decoded_text = llm.detokenize(generated_tokens).decode('utf-8', errors='replace')
+    ger = fr"{decoded_text}"
+    # ger = decoded_text
     print(f"デコードされたテキスト: {decoded_text}")
 else:
     print("デコードするトークンがありません。")
