@@ -27,6 +27,11 @@ def test_db():
     logger.info(f"Database path: {db_path}")
     
     try:
+        # 既存のファイルを削除
+        if os.path.exists(db_path):
+            os.remove(db_path)
+            logger.info(f"Removed existing test database: {db_path}")
+        
         # データベースを初期化
         logger.info("Initializing database...")
         import asyncio
@@ -40,11 +45,20 @@ def test_db():
             logger.error(f"Database file was not created at: {db_path}")
             raise RuntimeError(f"Database file was not created: {db_path}")
         
-        return db_path
+        yield db_path
         
     except Exception as e:
         logger.error(f"Error in test_db fixture: {e}")
         raise
+        
+    finally:
+        # テスト後のファイル削除
+        if os.path.exists(db_path):
+            try:
+                os.remove(db_path)
+                logger.info(f"Cleaned up test database: {db_path}")
+            except Exception as e:
+                logger.error(f"Error cleaning up test database: {e}")
 
 @pytest.mark.asyncio
 async def test_add_episode(test_db):
