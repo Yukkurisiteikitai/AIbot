@@ -12,9 +12,9 @@ import yaml
 class LlamaHandler:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        print(config.model_path)
+        print(self.config)
         self.llm = Llama(
-            model_path=str(config.model_path),
+            model_path=str(config['model_path']),
             n_ctx=config['n_ctx'],
             n_batch=config['n_batch'],
             n_threads=config['n_threads'],
@@ -25,7 +25,7 @@ class LlamaHandler:
     async def generate(
         self,
         prompt: str,
-        person_data_token: str,
+        person_data_token: list,
         max_tokens: int = 512,
         temperature: float = 0.7
     ) -> str:
@@ -93,7 +93,7 @@ class Runtime:
             # レスポンス生成
             response = await self.llama.generate(
                 prompt=message,
-                person_data_token="human"
+                person_data_token= [2, 76444, 120211, 237048, 67923, 73727, 237536]
             )
             
             return response
@@ -115,14 +115,61 @@ class Runtime:
 
 
 # test
+# if __name__ == "__main__":
+#     CONF_PATH = "/Users/yuuto/Desktop/nowProject/AIbot/config.yaml"
+
+
+#     # check for yaml to dict?
+#     with open(CONF_PATH, 'r', encoding='utf-8') as f:
+#                 data = yaml.safe_load(f)
+#     # print(type(data))
+#     print(data)
+
+    # model_name = "../../models/gemma-3-1b-it-Q4_K_M.gguf"
+    # config = data['llama']['runtime_config']
+    # llama = Llama(model_path=model_name,
+    #               n_ctx=config['n_ctx'],
+    #         n_batch=config['n_batch'],
+    #         n_threads=config['n_threads'],
+    #         n_gpu_layers=config.get('n_gpu_layers', 0))
+    # print(__name__)
+    # つまりモデルの読み込み自体は成功していると思って良さそう?
+    # モデル名問題クリア
+    # test
 if __name__ == "__main__":
-    CONF_PATH = "/Users/yuuto/Desktop/nowProject/AIbot/config.yaml"
+    # loggingの基本設定 (既にあれば不要)
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__) # このスクリプト自体のロガー
 
+    CONF_PATH = "/Users/yuuto/Desktop/nowProject/AIbot/config.yaml" # ご自身の環境に合わせてください
 
-    # check for yaml to dict?
-    with open(CONF_PATH, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f)
-    print(type(data))
+    async def main_test_run():
+        logger.info("Starting main_test_run...")
+        try:
+            # Runtimeの初期化時に config_path を渡す
+            ai_runtime = Runtime(config_path=CONF_PATH)
+            user_message = "人間とはどのようなものだと認識されているのだい" # テストしたいメッセージ
+            logger.info(f"Sending message to AI: '{user_message}'")
 
-    ai_run = Runtime(config_path=CONF_PATH)
-    print(ai_run.process_message(user_id="helo",message="人間とはどのようなものだと認識されているのだい"))
+            # process_message を await で呼び出す
+            response = await ai_runtime.process_message(user_id="test_user_id", message=user_message)
+
+            print("-" * 30)
+            print("AIの応答:")
+            print(response)
+            print("-" * 30)
+
+        except FileNotFoundError as e:
+            logger.error(f"Configuration file error: {e}")
+            print(f"設定ファイルが見つかりません: {e}")
+        except KeyError as e:
+            logger.error(f"Configuration key error: {e} - config.yamlの構造を確認してください。")
+            print(f"設定ファイルのキーエラー: {e} - config.yamlの構造を確認してください。")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred in main_test_run: {e}", exc_info=True)
+            print(f"予期せぬエラーが発生しました: {e}")
+
+    # 非同期関数を実行
+    asyncio.run(main_test_run())
+    # ai_run = Runtime(config_path=CONF_PATH)
+    # print(ai_run.process_message(user_id="helo",message="人間とはどのようなものだと認識されているのだい"))
