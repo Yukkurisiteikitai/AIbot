@@ -8,8 +8,8 @@ system:
 
 # llama.cppの設定
 llama:
-  model_path: "models/gemma-3-1b-it-Q4_K_M.gguf"  # モデルファイルのパス
   runtime_config:
+    model_path: "models/gemma-3-1b-it-Q4_K_M.gguf"  # モデルファイルのパス
     n_ctx: 4096              # コンテキストウィンドウサイズ
     n_batch: 512             # バッチサイズ
     n_threads: 4             # CPUスレッド数

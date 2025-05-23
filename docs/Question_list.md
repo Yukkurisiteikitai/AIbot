@@ -1,0 +1,42 @@
+趣味 興味
+性格の特徴
+信条 価値観
+影響力のある人
+幼少期の重要な経験
+過去の失敗 学習
+価値観の進化 ターニングポイント
+自己認識 自己肯定感
+感情的になるキッカケ
+感情的な反応パターン
+内面的なコンプレックス トラウマ
+思考プロセス 認知バイアス
+言語的 非言語的 チック 示された思考
+対人スタイル
+人間関係の歴史 適応
+葛藤解決スタイル
+根底にある行動パターン ニーズ
+願望 夢
+将来の展望 不安 希望
+内部対立対処
+
+
+hobbies_interests
+personality_traits
+beliefs_values
+influential_people
+significant_childhood_experiences
+past_failures_learnings
+evolution_of_values_turning_points
+self_perception_self_esteem
+emotional_triggers
+emotional_reaction_patterns
+inner_complexes_traumas
+thought_processes_cognitive_biases
+verbal_nonverbal_tics_indicated_thoughts
+interpersonal_style
+relationship_history_adaptation
+conflict_resolution_style
+behavioral_patterns_underlying_needs
+aspirations_dreams
+future_outlook_anxieties_hopes
+internal_conflicts_coping
