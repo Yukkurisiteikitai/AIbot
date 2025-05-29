@@ -1,213 +1,172 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const userInput = document.getElementById('userInput');
+const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const chatMessages = document.getElementById('chatMessages');
     const newChatBtn = document.getElementById('newChatBtn');
 
-    let inputStartTime = null;
-    let lastInputValue = '';
-    let lastInputTime = null;
-    let backspaceCount = 0;
-    let inputHistory = [];
-    let isThinking = false;
-    let editHistory = [];
+    // --- API設定 ---
+    const LM_STUDIO_API_URL = 'http://localhost:8001/ask'; // FastAPIサーバーのURL
+    const DEFAULT_MODEL_ID = "lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF"; // LM Studioでロード済みのモデルID (適宜変更)
 
-    // 差分検出と編集履歴の記録
-    // function recordEdit(oldText, newText) {
-    //     const diff = Diff.diffChars(oldText, newText);
-    //     const edit = {
-    //         time: new Date(),
-    //         changes: diff.map(part => ({
-    //             type: part.added ? 'added' : part.removed ? 'removed' : 'unchanged',
-    //             value: part.value,
-    //             count: part.count
-    //         }))
-    //     };
-    //     editHistory.push(edit);
-    //     return edit;
-    // }
-    function escapeHtml(unsafe) {
-    if (typeof unsafe !== 'string') {
-        // 文字列でない場合は、そのまま返すか、エラーを出すか、空文字にするなど
-        // ここでは念のため文字列に変換しようと試みる
+    // --- 状態変数 ---
+    let inputStartTime = null; // フォーカス時の時間
+    let previousText = '';     // 差分比較用の直前のテキスト
+    let lastInputTime = null;  // 最後のキー入力時間
+    let backspaceCount = 0;
+    let editHistory = [];      // 編集操作の履歴
+    let isThinking = false;    // ユーザーが思考中かどうかのフラグ (簡易版)
+    let thinkingTimeout;       // 思考中判定用のタイマー
+    let isIMEComposing = false; // IME変換中かどうかのフラグ
+    let textBeforeComposition = ''; // IME変換開始前のテキスト
+
+    // --- ask関数 (LM Studio APIと通信) ---
+    /**
+     * LM Studio APIに質問を送信し、回答を取得します。
+     * @param {string} question - モデルに尋ねたい質問。
+     * @param {object} [options={}] - オプションのパラメータ。
+     * @param {string} [options.model] - 使用するモデルのID。
+     * @param {string} [options.system_prompt] - システムプロンプト。
+     * @param {number} [options.temperature] - 生成の温度 (0.0〜2.0)。
+     * @param {number} [options.max_tokens] - 最大生成トークン数。
+     * @param {object} [options.userInputAnalysis] - ユーザー入力分析情報
+     * @returns {Promise<object>} サーバーからのレスポンス。
+     */
+    async function askLMStudio(question, options = {}) {
+        const payload = {
+            question: question,
+            model: options.model || DEFAULT_MODEL_ID,
+            system_prompt: options.system_prompt,
+            temperature: options.temperature,
+            max_tokens: options.max_tokens,
+            // userInputAnalysis: options.userInputAnalysis // API側が対応していれば送信
+        };
+
+        console.log("Sending to LM Studio:", payload); // デバッグ用
+
         try {
-            unsafe = String(unsafe);
-        } catch (e) {
-            return ""; // 変換できなければ空文字
+            const response = await fetch(LM_STUDIO_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                let errorDetails = `HTTP error! Status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorDetails = errorData.error || JSON.stringify(errorData);
+                } catch (e) {
+                    const textError = await response.text();
+                    errorDetails += textError ? ` - ${textError}` : " - No further details from server.";
+                }
+                throw new Error(errorDetails);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Error calling LM Studio API:", error);
+            throw error; // 呼び出し元で処理できるように再スロー
         }
     }
-    return unsafe
-         .replace(/&/g, "&")
-         .replace(/</g, "<")
-         .replace(/>/g, ">")
-         .replace(/"/g, '"')
-         .replace(/'/g, "'");
-    }
-    // 単一の編集イベントをHTMLに変換するヘルパー（デバッグ用や部分表示用）
-    function generateSingleEditHTML(edit) {
-        if (!edit || !edit.changes) return "";
-        return edit.changes.map(change => {
-            if (change.type === 'added') {
-                return `<ins>${escapeHtml(change.value)}</ins>`;
-            } else if (change.type === 'removed') {
-                return `<del>${escapeHtml(change.value)}</del>`;
-            }
-            return escapeHtml(change.value);
-        }).join('');
-    }
 
+
+    // --- 編集履歴と入力分析 ---
+    function escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') {
+            try { unsafe = String(unsafe); } catch (e) { return ""; }
+        }
+        return unsafe
+             .replace(/&/g, "&") // & を最初にエスケープ
+             .replace(/</g, "<")
+             .replace(/>/g, ">")
+             .replace(/"/g, '"')
+             .replace(/'/g, "'");
+    }
 
     function recordEdit(oldText, newText) {
-        if (oldText === newText) return null;
-        const diff = Diff.diffChars(oldText, newText);
-        const edit = {
-            time: new Date(),
-            changes: diff.map(part => ({
-                type: part.added ? 'added' : part.removed ? 'removed' : 'common',
-                value: part.value
-            }))
-        };
-        editHistory.push(edit);
-        console.log("Edit Recorded:", generateSingleEditHTML(edit)); // デバッグ用に単一の編集結果を表示
-        return edit;
+        if (oldText === newText || typeof Diff === 'undefined') return null; // Diffライブラリがない場合は何もしない
+        try {
+            const diff = Diff.diffChars(oldText, newText);
+            const edit = {
+                time: new Date(),
+                changes: diff.map(part => ({
+                    type: part.added ? 'added' : part.removed ? 'removed' : 'common',
+                    value: part.value
+                }))
+            };
+            editHistory.push(edit);
+            // console.log("Edit Recorded:", edit); // デバッグ用
+            return edit;
+        } catch(e) {
+            console.error("Error in recordEdit (jsdiff):", e);
+            return null;
+        }
     }
 
-    // 編集履歴のHTML表現を生成
-    function generateEditHistoryHTML() {
-        return editHistory.map(edit => {
-            const changes = edit.changes.map(change => {
-                if (change.type === 'added') {
-                    return `<ins>${change.value}</ins>`;
-                } else if (change.type === 'removed') {
-                    return `<del>${change.value}</del>`;
-                }
-                return change.value;
-            }).join('');
-            return `${new Date(edit.time).toLocaleTimeString()}: ${changes}`;
-        }).join('\n');
-    }
-    // 編集履歴のHTML表現を生成
-    function generateEditHistory_text() {
-        let temp_text = ""
-        return editHistory.map(edit => {
-            const changes_function = edit.changes.map(change => {
-                if (change.type === 'added') {
-                    temp_text+= `<ins>${change.value}</ins>`;
-                     
-                } else if (change.type === 'removed') {
-                    temp_text+= `<del>${change.value}</del>`;
-                }
-                // return change.value;
-            }).join('');
-            // return `${new Date(edit.time).toLocaleTimeString()}: ${changes}`;
-            return `${temp_text}`
-        }).join('\n');
+    function generateEditHistorySummary(history) {
+        if (!history || history.length === 0) return "編集はありませんでした。";
+
+        let addedChars = 0;
+        let removedChars = 0;
+        let edits = history.length;
+
+        history.forEach(edit => {
+            edit.changes.forEach(change => {
+                if (change.type === 'added') addedChars += change.value.length;
+                if (change.type === 'removed') removedChars += change.value.length;
+            });
+        });
+        return `編集回数: ${edits}, 追加文字数: ${addedChars}, 削除文字数: ${removedChars}`;
     }
 
-    // 入力欄の状態分析
-    function analyzeInputState() {
-        const currentTime = new Date();
-        const timeSinceLastInput = currentTime - lastInputTime;
-        const currentValue = userInput.value;
+    function interpretUserInputBehavior(durationMs, history, backspaceCount, finalLength) {
+        const seconds = durationMs / 1000;
+        let interpretation = "";
 
-        // 入力パターンの分析
-        const inputPattern = {
-            最後の入力からの経過時間: `${timeSinceLastInput}ミリ秒`,
-            バックスペース使用回数: backspaceCount,
-            入力履歴の長さ: inputHistory.length,
-            現在の入力長: currentValue.length,
-            思考中フラグ: isThinking,
-            編集履歴: editHistory
-        };
-
-        // 思考状態の判定
-        if (timeSinceLastInput > 5000 && currentValue.length > 0) {
-            isThinking = true;
-        } else if (timeSinceLastInput < 1000) {
-            isThinking = false;
+        if (seconds < 2 && history.length <= 1 && finalLength > 0) {
+            interpretation = "ユーザーは迅速に入力し、明確な意図を持っていた可能性があります。";
+        } else if (seconds > 15 || history.length > 5 || backspaceCount > 10) {
+            interpretation = "ユーザーは時間をかけて熟考したか、入力内容に迷いがあった可能性があります。多くの編集やバックスペースが見られます。";
+        } else if (history.length > 2 && backspaceCount > 3) {
+            interpretation = "ユーザーは何度か修正を加えながら入力したようです。";
+        } else if (finalLength === 0 && durationMs > 1000) {
+            interpretation = "ユーザーは何かを入力しようとしましたが、最終的に削除しました。";
+        } else {
+            interpretation = "ユーザーは標準的なペースで入力したようです。";
         }
 
-        console.log('入力状態の分析:', inputPattern);
-        return inputPattern;
+        if (isThinking) { // グローバルなisThinkingフラグも考慮
+            interpretation += " また、送信前には一定時間思考していた可能性があります。";
+        }
+
+        return interpretation;
     }
 
-    // テキストエリアの自動リサイズと入力時間の計測
-    // userInput.addEventListener('focus', () => {
-    //     inputStartTime = new Date();
-    //     lastInputTime = inputStartTime;
-    //     lastInputValue = userInput.value;
-    //     backspaceCount = 0;
-    //     inputHistory = [];
-    //     isThinking = false;
-    //     editHistory = [];
-    // });
+
+    // --- UIイベントリスナー ---
     userInput.addEventListener('focus', () => {
         inputStartTime = new Date();
-        lastInputTime = inputStartTime; // 思考中判定用
-        previousText = userInput.value;   // フォーカス時のテキストを最初のスナップショットとする
-        textBeforeComposition = userInput.value; // 同様に初期化
+        lastInputTime = inputStartTime;
+        previousText = userInput.value;
+        textBeforeComposition = userInput.value;
         backspaceCount = 0;
         isThinking = false;
-        editHistory = [];
+        editHistory = []; // 新しい入力セッションのために編集履歴をリセット
+        // console.log("Focus: Input session started.");
     });
 
     userInput.addEventListener('compositionstart', () => {
         isIMEComposing = true;
-        textBeforeComposition = userInput.value; // 変換開始時のテキストを保存
+        textBeforeComposition = userInput.value;
     });
 
-    userInput.addEventListener('compositionend', (event) => {
+    userInput.addEventListener('compositionend', () => {
         isIMEComposing = false;
-        const currentText = userInput.value; // 変換確定後のテキスト
-        // 変換開始前のテキストと確定後のテキストで差分を取る
+        const currentText = userInput.value;
         recordEdit(textBeforeComposition, currentText);
-        previousText = currentText; // 最後に記録したスナップショットを更新
-        lastInputTime = new Date(); // 入力があったとみなす
-    });
-
-    userInput.addEventListener('input', (event) => {
-        const currentTime = new Date();
-        const currentValue = userInput.value;
-
-        if (isIMEComposing) {
-            // IME変換中は、ここでは詳細な差分記録をしない。
-            // compositionend でまとめて処理する。
-            // ただし、UIの更新（自動リサイズなど）や、変換中の最新テキストを
-            // 他の何かに使う必要がある場合は、ここで処理する。
-            userInput.style.height = 'auto';
-            userInput.style.height = userInput.scrollHeight + 'px';
-            // lastInputTime は更新しても良いかもしれない (思考中判定のため)
-            // lastInputTime = currentTime;
-            return;
-        }
-
-        // IME変換中でない場合の通常の編集 (半角入力、削除、コピペなど)
-        // (ただし、compositionend直後にもinputイベントが発火する場合があるので、
-        //  previousTextがcompositionendで更新された直後だと差分が出ない可能性がある。
-        //  その場合は、compositionendでpreviousTextを更新した後に、
-        //  ここで改めて差分を取る意味は薄いかもしれない。
-        //  むしろ、BackspaceやDeleteなど、IMEを介さない明示的な編集を捉えるのが主目的)
-
-        // 以下の条件を追加して、compositionend直後の不要なrecordEdit呼び出しを避ける
-        if (currentValue !== previousText) {
-             recordEdit(previousText, currentValue);
-             previousText = currentValue; // スナップショットを更新
-        }
-
-
-        lastInputTime = currentTime; // 入力があったとみなす
-
-        userInput.style.height = 'auto';
-        userInput.style.height = userInput.scrollHeight + 'px';
-
-        clearTimeout(thinkingTimeout);
-        isThinking = false;
-        thinkingTimeout = setTimeout(() => {
-            if (userInput.value.length > 0) { // 入力がある場合のみ思考中と判断
-                isThinking = true;
-                console.log("思考中と判定されました。");
-            }
-        }, 3000);
+        previousText = currentText;
+        lastInputTime = new Date();
+        userInput.dispatchEvent(new Event('input', { bubbles: true })); // inputイベントを強制発火させてリサイズなどをトリガー
     });
 
 
@@ -215,127 +174,186 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentTime = new Date();
         const currentValue = userInput.value;
 
-        // 入力履歴の記録
-        if (currentValue !== lastInputValue) {
-            inputHistory.push({
-                time: currentTime,
-                value: currentValue,
-                length: currentValue.length
-            });
+        if (isIMEComposing) {
+            userInput.style.height = 'auto';
+            userInput.style.height = userInput.scrollHeight + 'px';
+            return; // IME変換中は詳細な差分記録をcompositionendに任せる
+        }
 
-            // 編集履歴の記録
-            recordEdit(lastInputValue, currentValue);
+        // IME変換中でない通常の編集
+        if (currentValue !== previousText) {
+            recordEdit(previousText, currentValue);
+            previousText = currentValue;
         }
 
         lastInputTime = currentTime;
-        lastInputValue = currentValue;
-
         userInput.style.height = 'auto';
         userInput.style.height = userInput.scrollHeight + 'px';
+
+        // 思考中判定のロジック
+        clearTimeout(thinkingTimeout);
+        isThinking = false; // 入力があったら一旦リセット
+        thinkingTimeout = setTimeout(() => {
+            // currentTime (inputイベント発生時) と lastInputTime (最後のキー入力) を比較
+            // または、単純に現在時刻とlastInputTimeを比較しても良い
+            const now = new Date();
+            if ((now - lastInputTime) >= 2900 && userInput.value.length > 0) { // 3秒近く入力がなければ
+                isThinking = true;
+                // console.log("思考中と判定されました。");
+            }
+        }, 3000); // 3秒間入力がなければ思考中とみなす
     });
 
-    // バックスペースキーの検出
     userInput.addEventListener('keydown', (e) => {
         if (e.key === 'Backspace') {
             backspaceCount++;
         }
+        if (e.key === 'Enter') {
+            if (e.isComposing || e.keyCode === 229) { // IME変換中のEnter
+                return;
+            }
+            if (!e.shiftKey) { // ShiftなしEnter
+                e.preventDefault();
+                sendMessage();
+            }
+        }
     });
 
-    // メッセージ送信処理
-    function sendMessage() {
-        const message = userInput.value.trim();
-        if (message) {
-            const inputEndTime = new Date();
-            const inputDuration = inputEndTime - inputStartTime;
-            const inputChanges = message.length - lastInputValue.length;
-            const inputState = analyzeInputState();
+    sendBtn.addEventListener('click', sendMessage);
 
-            console.log('入力の分析結果:', {
-                文字数の変化: inputChanges,
-                入力時間: `${inputDuration}ミリ秒`,
-                最終入力内容: message,
-                編集履歴: generateEditHistoryHTML(),
-                編集テキスト: generateEditHistory_text(),
-                入力状態: inputState
+    newChatBtn.addEventListener('click', () => {
+        chatMessages.innerHTML = '';
+        userInput.value = '';
+        userInput.style.height = 'auto';
+        editHistory = []; // 新しいチャットで編集履歴もクリア
+        // console.log("New chat started.");
+    });
+
+
+    // --- メッセージ処理 ---
+    async function sendMessage() {
+        const userMessageText = userInput.value.trim();
+        if (!userMessageText || sendBtn.disabled) return; // 空メッセージか送信処理中なら何もしない
+
+        const inputEndTime = new Date();
+        const inputDuration = inputStartTime ? (inputEndTime - inputStartTime) : 0;
+
+        addMessage('user', userMessageText);
+        const currentUserInput = userInput.value; // API送信前に保存
+        userInput.value = '';
+        userInput.style.height = 'auto';
+        sendBtn.disabled = true;
+        userInput.disabled = true;
+        addMessage('assistant', '...', true); // ローディング表示
+
+        // ユーザー入力行動の分析
+        const editSummary = generateEditHistorySummary(editHistory);
+        const behaviorInterpretation = interpretUserInputBehavior(inputDuration, editHistory, backspaceCount, currentUserInput.length);
+
+        console.log('--- ユーザー入力分析 ---');
+        console.log(`入力時間: ${inputDuration / 1000}秒`);
+        console.log(`編集履歴の概要: ${editSummary}`);
+        console.log(`バックスペース回数: ${backspaceCount}`);
+        console.log(`入力行動の解釈: ${behaviorInterpretation}`);
+        console.log('----------------------');
+
+        // LM Studioに渡すシステムプロンプトに行動分析を付加
+        const systemPromptWithAnalysis = `あなたはユーザーをサポートする親切なアシスタントです。
+ユーザーは現在、以下の状況で質問をしています。これを考慮して、より適切と思われる応答をしてください。
+入力にかかった時間: ${Math.round(inputDuration / 1000)}秒
+編集の概要: ${editSummary}
+バックスペース使用回数: ${backspaceCount}回
+入力行動の推測: ${behaviorInterpretation}
+---
+ユーザーの質問に答えてください。`;
+
+        try {
+            const response = await askLMStudio(currentUserInput, {
+                system_prompt: systemPromptWithAnalysis,
+                // model: "your-specific-model-id", // 必要なら指定
+                max_tokens: 500, // 応答の長さを調整
+                temperature: 0.7
             });
 
-            addMessage('user', message);
-            userInput.value = '';
-            userInput.style.height = 'auto';
-            
-            // ここでAPIリクエストを送信
-            // 仮の応答を表示
-            setTimeout(() => {
-                addMessage('assistant', 'これは仮の応答です。実際のAPIと連携する必要があります。');
-            }, 1000);
+            updateLastAssistantMessage(response.answer || "申し訳ありません、応答を取得できませんでした。");
+            console.log("LM Studio Response:", response);
+
+        } catch (error) {
+            updateLastAssistantMessage(`エラーが発生しました: ${error.message}`);
+        } finally {
+            sendBtn.disabled = false;
+            userInput.disabled = false;
+            userInput.focus();
+            // 新しい入力セッションの準備
+            inputStartTime = new Date(); // すぐに次の入力を開始できるように
+            previousText = '';
+            lastInputTime = inputStartTime;
+            backspaceCount = 0;
+            editHistory = [];
+            isThinking = false;
         }
     }
 
-    // メッセージの追加
-    function addMessage(role, content) {
+    function addMessage(role, content, isLoading = false) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}`;
-        
+        if (isLoading) {
+            messageDiv.classList.add('loading');
+        }
+
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
-        messageContent.textContent = content;
-        
-        // コピーボタンの追加
-        const copyButton = document.createElement('button');
-        copyButton.className = 'copy-button';
-        copyButton.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/>
-                <path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/>
-            </svg>
-        `;
-        
-        copyButton.addEventListener('click', () => {
-            navigator.clipboard.writeText(content).then(() => {
-                // コピー成功時のフィードバック
-                copyButton.classList.add('copied');
-                setTimeout(() => {
-                    copyButton.classList.remove('copied');
-                }, 2000);
-            });
-        });
-        
+        messageContent.innerHTML = isLoading ? '<span class="dot-flashing"></span>' : escapeHtml(content).replace(/\n/g, '<br>'); // HTMLとして解釈＆改行を<br>に
+
         messageDiv.appendChild(messageContent);
-        messageDiv.appendChild(copyButton);
+
+        if (role === 'assistant' && !isLoading) { // アシスタントのメッセージで、ローディングでない場合のみコピーボタン追加
+            const copyButton = document.createElement('button');
+            copyButton.className = 'copy-button';
+            copyButton.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+            copyButton.title = "コピー";
+
+            copyButton.addEventListener('click', () => {
+                navigator.clipboard.writeText(content).then(() => {
+                    copyButton.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`; // チェックマーク
+                    copyButton.classList.add('copied');
+                    setTimeout(() => {
+                        copyButton.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+                        copyButton.classList.remove('copied');
+                    }, 2000);
+                }).catch(err => console.error('コピーに失敗しました:', err));
+            });
+            messageDiv.appendChild(copyButton);
+        }
         chatMessages.appendChild(messageDiv);
-        
-        // スクロールを最下部に移動
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    // 送信ボタンのクリックイベント
-    sendBtn.addEventListener('click', sendMessage);
+    function updateLastAssistantMessage(content) {
+        const loadingMessage = chatMessages.querySelector('.message.assistant.loading');
+        if (loadingMessage) {
+            const messageContent = loadingMessage.querySelector('.message-content');
+            messageContent.innerHTML = escapeHtml(content).replace(/\n/g, '<br>'); // HTMLとして解釈
+            loadingMessage.classList.remove('loading');
 
-    // // Enterキーで送信（Shift + Enterで改行）
-    // userInput.addEventListener('keydown', (e) => {
-    //     if (e.key === 'Enter' && !e.shiftKey) {
-    //         e.preventDefault();
-    //         sendMessage();
-    //     }
-    // });
-    userInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        if (e.isComposing || e.keyCode === 229) { // 229 は一部ブラウザでIME変換中を示すkeyCode
-            // IME変換中のEnterなので、送信しない
-            return;
+            // コピーボタンをここでも追加 (addMessageとロジックを共通化しても良い)
+            const copyButton = document.createElement('button');
+            copyButton.className = 'copy-button';
+            copyButton.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+            copyButton.title = "コピー";
+            copyButton.addEventListener('click', () => {
+                navigator.clipboard.writeText(content).then(() => {
+                    copyButton.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                    copyButton.classList.add('copied');
+                    setTimeout(() => {
+                        copyButton.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+                        copyButton.classList.remove('copied');
+                    }, 2000);
+                }).catch(err => console.error('コピーに失敗しました:', err));
+            });
+            loadingMessage.appendChild(copyButton);
         }
-
-        if (!e.shiftKey) {
-            // IME変換中でなく、Shiftキーも押されていないEnterなので送信する
-            e.preventDefault(); // デフォルトの改行動作を防ぐ
-            sendMessage();
-        }
-        // Shift + Enter の場合は、デフォルトの改行動作に任せる (送信しない)
     }
-});
 
-    // 新しいチャット開始
-    newChatBtn.addEventListener('click', () => {
-        chatMessages.innerHTML = '';
-    });
-}); 
+    // 初期フォーカス
+    userInput.focus();

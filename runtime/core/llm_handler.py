@@ -13,7 +13,9 @@ class LlamaHandler:
             n_ctx=config['n_ctx'],
             n_batch=config['n_batch'],
             n_threads=config['n_threads'],
-            n_gpu_layers=config.get('n_gpu_layers', 0)
+            n_gpu_layers=config.get('n_gpu_layers', 1),
+            # n_gpu_layers=-1,
+            verbose=True
         )
         self.logger = logging.getLogger(__name__)
         
@@ -40,7 +42,10 @@ class LlamaHandler:
             max_new_tokens = 512
             generated_tokens = []
 
+            print(f"epos-token:{self.llm.token_eos()}")
+            print(f"aa:{self.llm.detokenize([106]).decode('utf-8', errors='replace')}")
             print(f"\n次の{max_new_tokens}個のトークンを生成します:")
+            
             for i in range(max_new_tokens):
                 # 次のトークンをサンプリング (最も基本的なサンプリング)
                 # temperatureなどのサンプリングパラメータは Llama オブジェクト初期化時や、
@@ -51,8 +56,9 @@ class LlamaHandler:
                 next_token = self.llm.sample(temp=0.7) # 例: 温度を0.7に設定してサンプリング
 
                 # EOS (End of Sequence) トークンが出たら生成を終了
-                if next_token == self.llm.token_eos():
+                if next_token == self.llm.token_eos() or next_token == 106:
                     print("  EOSトークンが生成されたため、終了します。")
+                    
                     break
 
                 generated_tokens.append(next_token)

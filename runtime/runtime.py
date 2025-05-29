@@ -50,47 +50,48 @@ class Runtime:
                 # エラーハンドリング
                 pass
 
-async def main_test_run():
-        logger.info("Starting main_test_run...")
-        try:
-            # Runtimeの初期化時に config_path を渡す
-            ai_runtime = Runtime(config_path=CONF_PATH)
-            user_message = "人間とはどのようなものだと認識されているのだい" # テストしたいメッセージ
-            logger.info(f"Sending message to AI: '{user_message}'")
+# testCode 
+# async def main_test_run():
+#     logger.info("Starting main_test_run...")
+#     try:
+#         # Runtimeの初期化時に config_path を渡す
+#         ai_runtime = Runtime(config_path=CONF_PATH)
+#         user_message = "人間とはどのようなものだと認識されているのだい" # テストしたいメッセージ
+#         logger.info(f"Sending message to AI: '{user_message}'")
 
-            tokenS = ai_runtime.llama._decode_prompt(user_message,False)
-            print(f"tokenS:{tokenS}")
+#         tokenS = ai_runtime.llama._decode_prompt(user_message,False)
+#         print(f"tokenS:{tokenS}")
 
-            # process_message を await で呼び出す
-            response = await ai_runtime.process_message(user_id="test_user_id", message=user_message)
+#         # process_message を await で呼び出す
+#         response = await ai_runtime.process_message(user_id="test_user_id", message=user_message)
 
-            print("-" * 30)
-            print("AIの応答:")
-            print(response)
-            print("-" * 30)
+#         print("-" * 30)
+#         print("AIの応答:")
+#         print(response)
+#         print("-" * 30)
 
-        except FileNotFoundError as e:
-            logger.error(f"Configuration file error: {e}")
-            print(f"設定ファイルが見つかりません: {e}")
-        except KeyError as e:
-            logger.error(f"Configuration key error: {e} - config.yamlの構造を確認してください。")
-            print(f"設定ファイルのキーエラー: {e} - config.yamlの構造を確認してください。")
-        except Exception as e:
-            logger.error(f"An unexpected error occurred in main_test_run: {e}", exc_info=True)
-            print(f"予期せぬエラーが発生しました: {e}")
+#     except FileNotFoundError as e:
+#         logger.error(f"Configuration file error: {e}")
+#         print(f"設定ファイルが見つかりません: {e}")
+#     except KeyError as e:
+#         logger.error(f"Configuration key error: {e} - config.yamlの構造を確認してください。")
+#         print(f"設定ファイルのキーエラー: {e} - config.yamlの構造を確認してください。")
+#     except Exception as e:
+#         logger.error(f"An unexpected error occurred in main_test_run: {e}", exc_info=True)
+#         print(f"予期せぬエラーが発生しました: {e}")
+    
         
-        
 
-    # 非同期関数を実行
-    asyncio.run(main_test_run())
+#     # 非同期関数を実行
+#     asyncio.run(main_test_run())
 
 
-# test
-if __name__ == "__main__":
-    # loggingの基本設定 (既にあれば不要)
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger = logging.getLogger(__name__) # このスクリプト自体のロガー
+# # test
+# if __name__ == "__main__":
+#     # loggingの基本設定 (既にあれば不要)
+#     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#     logger = logging.getLogger(__name__) # このスクリプト自体のロガー
 
-    CONF_PATH = "/Users/yuuto/Desktop/nowProject/AIbot/config.yaml" # ご自身の環境に合わせてください
+#     CONF_PATH = "/Users/yuuto/Desktop/nowProject/AIbot/config.yaml" # ご自身の環境に合わせてください
 
     
