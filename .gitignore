@@ -6,3 +6,5 @@ bot.log
 test_config.json
 models
 .DS_Store
+config.yaml
+HelloWOrld

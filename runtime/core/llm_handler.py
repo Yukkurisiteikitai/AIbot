@@ -1,128 +1,107 @@
 from llama_cpp import Llama
-from typing import Dict, Any, Optional
-import asyncio
-import logging
-# import asyncio
-#  --- JSON抽出のための正規表現ライブラリをインポート ---
-import re # select_relevant_tags 関数内で必要になるため、ここでも import しておくか、関数の上に移動
-from pathlib import Path
 from typing import Dict, Any
-import yaml
+import logging
+from typing import Dict, Any
+
 
 class LlamaHandler:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        print(config.model_path)
+        print(self.config)
         self.llm = Llama(
-            model_path=str(config.model_path),
+            model_path=str(config['model_path']),
             n_ctx=config['n_ctx'],
             n_batch=config['n_batch'],
             n_threads=config['n_threads'],
-            n_gpu_layers=config.get('n_gpu_layers', 0)
+            n_gpu_layers=config.get('n_gpu_layers', 1),
+            # n_gpu_layers=-1,
+            verbose=True
         )
         self.logger = logging.getLogger(__name__)
         
     async def generate(
         self,
         prompt: str,
-        person_data_token: str,
+        person_data_token: list,
         max_tokens: int = 512,
         temperature: float = 0.7
     ) -> str:
         try:
             # トークン化されたPerson Dataを含むプロンプトを構築
             full_prompt = self._build_prompt(prompt, person_data_token)
+            print(f"full_prpmpt:{full_prompt}")#test
+            # これなんか知らないけどデコードの処理がうまくいってない?
+            print(f"==== TEST =====\n\nHelllifieo;jf;oawjfeio;jfo;:{self.llm.detokenize(full_prompt).decode('utf-8', errors='replace')}\n\n ==== =====")
+
+            # 絶対にここでToken化して処理を行うように整理していないからだろ
+            print(f"プロンプトトークンを評価中...")
+            self.llm.eval(full_prompt)
+            print(f"プロンプトトークンの評価完了。")
+
+            # 生成するトークンの最大数
+            max_new_tokens = 512
+            generated_tokens = []
+
+            print(f"epos-token:{self.llm.token_eos()}")
+            print(f"aa:{self.llm.detokenize([106]).decode('utf-8', errors='replace')}")
+            print(f"\n次の{max_new_tokens}個のトークンを生成します:")
             
-            # 非同期で生成を実行
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.llm(
-                    full_prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    stop=["</s>", "Human:", "Assistant:"]
-                )
-            )
+            for i in range(max_new_tokens):
+                # 次のトークンをサンプリング (最も基本的なサンプリング)
+                # temperatureなどのサンプリングパラメータは Llama オブジェクト初期化時や、
+                # より高度なサンプリングメソッド (llm.sample_*) で指定できます。
+                # ここでは、Llamaオブジェクトに設定されたデフォルトのサンプリング設定が使われます。
+                # (明示的に設定したい場合は、Llamaインスタンス作成時に temp, top_k, top_p などを指定するか、
+                #  llama_cpp.llama_sample* 関数群を直接利用します)
+                next_token = self.llm.sample(temp=0.7) # 例: 温度を0.7に設定してサンプリング
+
+                # EOS (End of Sequence) トークンが出たら生成を終了
+                if next_token == self.llm.token_eos() or next_token == 106:
+                    print("  EOSトークンが生成されたため、終了します。")
+                    
+                    break
+
+                generated_tokens.append(next_token)
+                print(f"  生成されたトークンID [{i+1}]: {next_token}")
+
+                # 新しく生成されたトークンをモデルに評価させる (次の予測のため)
+                # 1トークンずつ評価する場合は、[next_token] のようにリストで渡します
+                self.llm.eval([next_token])
+
+            print(f"\n生成されたトークンIDのシーケンス: {generated_tokens}")
+
+
+            # --- 3. トークンをテキストにデコード ---
+            print("\n--- デコード処理 ---")
+            if generated_tokens:
+                # detokenizeメソッドはバイト列を返すので、.decode('utf-8') が必要
+                # errors='replace' はデコードできない文字があった場合に代替文字に置き換えます
+                decoded_text = self.llm.detokenize(generated_tokens).decode('utf-8', errors='replace')
+                print(f"デコードされたテキスト: {decoded_text}")
+            else:
+                print("デコードするトークンがありません。")
             
-            return response['choices'][0]['text']
+            return decoded_text
             
         except Exception as e:
             self.logger.error(f"Generation error: {e}")
             raise
             
-    def _build_prompt(self, prompt: str, person_data_token: str) -> str:
-        return f"""<s>[INST] <<SYS>>
-You are an AI assistant with access to the user's personal data (token: {person_data_token}).
-Use this information to provide personalized responses.
-<</SYS>>
-
-{prompt} [/INST]"""
+    def _decode_prompt(self, text: str,ADD_bos:bool) -> list:
+        return self.llm.tokenize(text.encode('utf-8'), add_bos=ADD_bos)
 
 
-# testCode ------------------------------------
-class Config:
-    def __init__(self, config_path: str = "/Users/yuuto/Desktop/nowProject/AIbot/config.yaml"):
-        self.config_path = config_path
-        self.config: Dict[str, Any] = self._load_config()
-        
-    def _load_config(self) -> Dict[str, Any]:
-        with open(self.config_path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
-            
-    @property
-    def model_path(self) -> Path:
-        print(self.config['llama']['model_path'])
-        return Path(self.config['llama']['model_path'])
-        
-    @property
-    def llama_config(self) -> Dict[str, Any]:
-        return self.config['llama']['runtime_config']
+    def _build_prompt(self, prompt: str, person_data_token: list) -> list:
+        prompt_tokens = self._decode_prompt(text= f"""<s>[INST] <<SYS>>
+    You are an AI assistant with access to the user's personal data (token: 
+    """,ADD_bos=True)
+        prompt_tokens.extend(person_data_token)
+        # prompt_tokens = self.llm.tokenize(user_question.encode('utf-8'), add_bos=True)
+        prompt_tokens.extend(
+            self._decode_prompt(text=f""").
+    Use this information to provide personalized responses.
+    <</SYS>>
 
-class Runtime:
-    def __init__(self, config_path: str = "config.yaml"):
-        self.config = Config(config_path=config_path)
-        self.llama = LlamaHandler(self.config.llama_config)
-        # self.person_data_manager = PersonDataManager()
-        
-    async def process_message(self, user_id: str, message: str) -> str:
-        try:
-            # Person Dataの取得
-            # person_data_token = await self.person_data_manager.get_person_data(user_id)
-            
-            # レスポンス生成
-            response = await self.llama.generate(
-                prompt=message,
-                person_data_token="human"
-            )
-            
-            return response
-            
-        except Exception as e:
-            # エラーハンドリング
-            return f"エラーが発生しました: {str(e)}"
-            
-    async def run(self):
-        # 非同期イベントループの開始
-        while True:
-            try:
-                # メッセージの受信と処理
-                # 実際の実装では、メッセージキューやWebSocketなどを使用
-                pass
-            except Exception as e:
-                # エラーハンドリング
-                pass    
-
-
-# test
-if __name__ == "__main__":
-    CONF_PATH = "/Users/yuuto/Desktop/nowProject/AIbot/config.yaml"
-
-
-    # check for yaml to dict?
-    with open(CONF_PATH, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f)
-    print(type(data))
-
-    ai_run = Runtime(config_path=CONF_PATH)
-    print(ai_run.process_message(user_id="helo",message="人間とはどのようなものだと認識されているのだい"))
+    {prompt} [/INST]""",ADD_bos=False)
+        )
+        return prompt_tokens
