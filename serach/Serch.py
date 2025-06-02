@@ -1,3 +1,7 @@
+import aiosqlite
+import asyncio
+import json
+
 class WeightEvaluator:
     def __init__(self):
         self.weight_types = {

@@ -8,3 +8,4 @@ models
 .DS_Store
 config.yaml
 HelloWOrld
+cuda_logs

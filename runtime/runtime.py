@@ -38,6 +38,26 @@ class Runtime:
         except Exception as e:
             # エラーハンドリング
             return f"エラーが発生しました: {str(e)}"
+    
+
+    async def simpleAnswer(self, user_id: str, message: str) -> str:
+        try:
+            # Person Dataの取得
+            # person_data_token = await self.person_data_manager.get_person_data(user_id)
+            
+            # レスポンス生成
+            response = await self.llama.generate(
+                prompt=message,
+                person_data_token= [2, 76444, 120211, 237048, 67923, 73727, 237536]
+            )
+            
+            return response
+            
+        except Exception as e:
+            # エラーハンドリング
+            logging.error(f"Error in simpleAnswer: {e}", exc_info=True)
+            return f"エラーが発生しました: {str(e)}"
+
             
     async def run(self):
         # 非同期イベントループの開始
@@ -50,40 +70,36 @@ class Runtime:
                 # エラーハンドリング
                 pass
 
-# testCode 
-# async def main_test_run():
-#     logger.info("Starting main_test_run...")
-#     try:
-#         # Runtimeの初期化時に config_path を渡す
-#         ai_runtime = Runtime(config_path=CONF_PATH)
-#         user_message = "人間とはどのようなものだと認識されているのだい" # テストしたいメッセージ
-#         logger.info(f"Sending message to AI: '{user_message}'")
+    async def main_test_run(self,conf_path: str = "config.yaml"):
+            
+            self.logger.info("Starting main_test_run...")
+            try:
+                # Runtimeの初期化時に config_path を渡す
+                ai_runtime = Runtime(config_path=conf_path)
+                user_message = "人間とはどのようなものだと認識されているのだい" # テストしたいメッセージ
+                self.logger.info(f"Sending message to AI: '{user_message}'")
 
-#         tokenS = ai_runtime.llama._decode_prompt(user_message,False)
-#         print(f"tokenS:{tokenS}")
+                tokenS = ai_runtime.llama._decode_prompt(user_message,False)
+                print(f"tokenS:{tokenS}")
 
-#         # process_message を await で呼び出す
-#         response = await ai_runtime.process_message(user_id="test_user_id", message=user_message)
+                # process_message を await で呼び出す
+                response = await ai_runtime.process_message(user_id="test_user_id", message=user_message)
 
-#         print("-" * 30)
-#         print("AIの応答:")
-#         print(response)
-#         print("-" * 30)
+                print("-" * 30)
+                print("AIの応答:")
+                print(response)
+                print("-" * 30)
 
-#     except FileNotFoundError as e:
-#         logger.error(f"Configuration file error: {e}")
-#         print(f"設定ファイルが見つかりません: {e}")
-#     except KeyError as e:
-#         logger.error(f"Configuration key error: {e} - config.yamlの構造を確認してください。")
-#         print(f"設定ファイルのキーエラー: {e} - config.yamlの構造を確認してください。")
-#     except Exception as e:
-#         logger.error(f"An unexpected error occurred in main_test_run: {e}", exc_info=True)
-#         print(f"予期せぬエラーが発生しました: {e}")
-    
-        
+            except FileNotFoundError as e:
+                self.logger.error(f"Configuration file error: {e}")
+                print(f"設定ファイルが見つかりません: {e}")
+            except KeyError as e:
+                self.logger.error(f"Configuration key error: {e} - config.yamlの構造を確認してください。")
+                print(f"設定ファイルのキーエラー: {e} - config.yamlの構造を確認してください。")
+            except Exception as e:
+                self.logger.error(f"An unexpected error occurred in main_test_run: {e}", exc_info=True)
+                print(f"予期せぬエラーが発生しました: {e}")
 
-#     # 非同期関数を実行
-#     asyncio.run(main_test_run())
 
 
 # # test
@@ -93,5 +109,4 @@ class Runtime:
 #     logger = logging.getLogger(__name__) # このスクリプト自体のロガー
 
 #     CONF_PATH = "/Users/yuuto/Desktop/nowProject/AIbot/config.yaml" # ご自身の環境に合わせてください
-
-    
+#     asyncio.run(main_test_run())
