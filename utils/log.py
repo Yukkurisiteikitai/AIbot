@@ -120,7 +120,7 @@ if __name__ == "__main__":
     db_logger = create_module_logger("database")
     api_logger = create_module_logger("api")
     auth_logger = create_module_logger("auth")
-    
+
     # 通常のログ
     db_logger.get_logger().info("データベース接続開始")
     

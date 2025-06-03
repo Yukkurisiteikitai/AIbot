@@ -26,6 +26,7 @@ class Question_Agent:
         pass
 
 
-q_agent = Question_Agent(config_path="config.yaml")
-q_agent.init_question()
+def test():
+    q_agent = Question_Agent(config_path="config.yaml")
+    q_agent.init_question()
 # init question モード

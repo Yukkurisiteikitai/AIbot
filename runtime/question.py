@@ -25,18 +25,18 @@ class Question_config:
         with open(self.config_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
     
+    # @property
+    # def index_return(self) -> list: # 文字列で返すように変更
+    #     try:
+    #         # model_path は別途 runtime_config にマージする必要があります。
+    #         return self._config_data["presentation_order"]
+    #     except KeyError as e:
+    #         print(f"ERROR: 'question_agent.question_config.taglist' or a part of it not found in config YAML. Error: {e}")
+    #         raise
     @property
     def index_return(self) -> list: # 文字列で返すように変更
         try:
-            # model_path は別途 runtime_config にマージする必要があります。
-            return self._config_data["presentation_order"]
-        except KeyError as e:
-            print(f"ERROR: 'question_agent.question_config.taglist' or a part of it not found in config YAML. Error: {e}")
-            raise
-    @property
-    def index_return(self) -> list: # 文字列で返すように変更
-        try:
-            return self._config_data["question_themes"][self._config_data["presentation_order"][0]]
+            return self._config_data["question_themes"][self._config_data["presentation_order"]]
 
 
         except KeyError as e:
@@ -57,13 +57,11 @@ hobbies_interests: # タグNo.6
       - "最近、何か夢中になっていることや、楽しいと感じる活動はありますか？"
       - "あなたの知的好奇心をくすぐるものは何ですか？"
       - "どんなことをしている時が、一番リフレッシュできますか？"
-      - "あなたの趣味や興味関心について、始めたきっかけや、そこから何を得ているか教えていただけますか？"
+      - "あなたの趣味や興味関心について、始めたきっかけや、そこから何を得ているか教えていただけますか？"n
     related_person_data_key: "hobbies_interests"
     notes: "「好き」と「得意」は必ずしも一致しない。「成功体験」と結びつけて記述するよう促すと、より自己理解に繋がる情報が得られる可能性。"
     original_tag_id: 6
 """
-
-           
 class Question:
     def __init__(self,cofig:Question_config):
         
@@ -77,8 +75,4 @@ class Question:
             sys_p= f"""
 現在のタグは{now_tag}です。
 このタグの説明:{svg}
-
 """
-
-
-
