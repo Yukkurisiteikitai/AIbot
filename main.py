@@ -1,10 +1,30 @@
 from fastapi import FastAPI, APIRouter
 from runtime.runtime import Runtime
 import asyncio
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
 
+origins = [
+    "http://localhost",
+    "http://localhost:8010",
+    "http://127.0.0.1",
+    "http://127.0.0.1:8010",
+    # もし特定のWebページから呼び出す場合は、そのページのオリジンを追加
+    # 例: "http://your-frontend-domain.com", "http://localhost:3000" (React/Vue/Angularなど)
+    # 開発中の場合は、全てのオリジンを許可するために "*" を使うこともできますが、
+    # 本番環境ではセキュリティリスクが高まるため、具体的なオリジンを指定してください。
+    "null" # <--- ★この行を必ず追加してください。Developer Consoleで`null`オリジンからアクセスするために必要です。
+]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,       # 許可するオリジンのリスト
+    allow_credentials=True,      # クッキーなどの資格情報を許可するか
+    allow_methods=["*"],         # 許可するHTTPメソッド (GET, POST, PUT, DELETEなど)
+    allow_headers=["*"],         # 許可するHTTPヘッダー
+)
 # region READER_tool(基本的に譲歩を取得する)
 # AI の本体のモデル情報、CPUやGPUなどの使用状況が余裕があるか?具体的にどれくらいあるか
 
