@@ -1,6 +1,6 @@
 from fastapi import FastAPI, APIRouter
-from runtime import Runtime
-import aysncio
+from runtime.runtime import Runtime
+import asyncio
 
 app = FastAPI()
 
@@ -62,16 +62,27 @@ def ask_question():
 
     return {"question": "あなたの名前は何ですか？"}
 
+
+from pydantic import BaseModel
+
+class question_tiket(BaseModel):
+    user_id: str
+    question: str = "なんもuserから投げられてねーよ"
+
+
 @question_router.post("/ask")
-async def ask_reply():
+async def ask_reply(ticket:question_tiket):
     """
     AIがユーザーに対する質問を投げるエンドポイント
     現在セットされている質問の中から順番に選ぶ
     内部的にはindexで質問として利用したものをnumberとリストで管理している
+    @pram user_id: ユーザーのID
+    @pram message: ユーザーからのメッセージ(質問)
     """
-
+    print(f"ユーザーID: {ticket.user_id}, 質問: {ticket.question}")
+    answer = await runtime.process_message(user_id=ticket.user_id, message=ticket.question)
     # ここでは仮に質問を返す
-    return {"question": "あなたの名前は何ですか？"}
+    return {"answer": answer}
 
 @question_router.post("/user_answer")
 def user_answer(answer: str):
