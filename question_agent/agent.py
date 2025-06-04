@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from functools import wraps
 import time
 
-
+#region エラーハンドリング関連
 @dataclass
 class QuestionResponse:
     """質問応答のデータクラス"""
@@ -52,6 +52,7 @@ def handle_errors(func):
             raise QuestionAgentError(f"処理中にエラーが発生しました: {str(e)}")
     return wrapper
 
+# endregion
 
 class QuestionAgent:
     def __init__(self, config_path: str, timeout: int = 30):
