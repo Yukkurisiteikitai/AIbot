@@ -2,7 +2,8 @@ from fastapi import FastAPI, APIRouter
 from runtime.runtime import Runtime
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
-
+from pydantic import BaseModel
+from api_module import question_tiket, thread_tiket
 
 app = FastAPI()
 
@@ -63,6 +64,80 @@ def get_user_help():
     """
     return {"message": "ユーザーがAIに質問をするためのプロンプトを切り替える"}
 
+
+
+
+
+@question_router.post("/")
+def get_init_question(ticket: thread_tiket):
+    """
+    質問システムの初期化エンドポイント
+    ここでは質問の初期化を行う
+    """
+
+    # {
+    #     user_id:int,
+    #     message:str,
+    # }
+
+    
+    
+    # b[/db/thread/new]
+    # POST
+    #     {
+    #         user_id:int,
+    #         message:str,
+    #         mode:str = "search"
+    #     }
+    # 
+    # thread_id = create_new_thread({ticket.user_id,tiket.message})
+    
+
+    # スレッドidを作成して返す
+    # ただしスレッドidはchatなのかserchなのかを区別するために
+    # cht_xxxxxxxxxxx.xxxxxxxx.xxxxxx
+    # srh_xxxxxxxxxxx.xxxxxxxx.xxxxxx
+    # としてidを発行する
+
+    
+
+
+    # b[GET: /ai/question/check]
+    #     {
+    #         user_id:int
+    #     }
+    
+    # questions:list = get_questions(user_id=ticket.user_id)
+    
+    # return
+    # {
+    #     questions[list[str]], {"あなたはどんな生き方をしてきましたか", "あなたの趣味は何ですか", "最近の出来事について教えてください"}
+    # }
+
+    # この{questions[0]}
+    # を使って質問を行う
+    
+    # [GET: /ai/question/ask]
+    # GET
+    #question = get_ai_question(user_id=tiket.user_id, question=questions[0])
+    #     {
+    #         user_id:int,
+    #         question:str -> {questions[0]}
+    #     }
+    
+    # questions[0]は削除される
+    
+
+    try:
+        # asyncio.run(runtime.init_question())
+        # return {"message": "質問システムの初期化が完了しました"}
+        thread_id = "cht_" + ticket.user_id + ".xxxxxxxx.xxxxxx"
+        return {"thread_id": thread_id, 
+                "question": "あなたはだんだん眠くなるのはいつですか？",}
+    except Exception as e:
+        return {"error": str(e)}
+    
+
 @question_router.get("/check")
 def check_questions():
     """
@@ -83,11 +158,7 @@ def ask_question():
     return {"question": "あなたの名前は何ですか？"}
 
 
-from pydantic import BaseModel
 
-class question_tiket(BaseModel):
-    user_id: str
-    question: str = "なんもuserから投げられてねーよ"
 
 
 @question_router.post("/ask")
