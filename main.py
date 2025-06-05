@@ -5,6 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from api_module import question_tiket, thread_tiket
 
+# other router
+import api_use_db
+
 app = FastAPI()
 
 origins = [
@@ -43,6 +46,11 @@ ai_router = APIRouter(
 question_router = APIRouter(
     prefix="/question",
     tags=["AI Questions"], # Swagger UI でグループ化されるタグ
+)
+
+db_router = APIRouter(
+    prefix="/db",
+    tags=["Data sorce"], # Swagger UI でグループ化されるタグ
 )
 
 
@@ -239,4 +247,7 @@ def read_item(item_id: int, q: str = None):
 
 # ルーターのデプロイ
 ai_router.include_router(question_router)
+db_router.include_router(api_use_db.router)
+
 app.include_router(ai_router)
+app.include_router(db_router)

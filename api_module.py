@@ -1,10 +1,5 @@
 from pydantic import BaseModel
 
-class question_tiket(thread_tiket):
-    question: str = "なんも質問が投げられてねーよ"
-    answer: str = "なんも回答が投げられてねーよ"
-
-
 
 class thread_tiket(BaseModel):
     user_id: str
@@ -13,6 +8,13 @@ class thread_tiket(BaseModel):
 
 
 class question_tiket(BaseModel):
+    question: str = "なんも質問が投げられてねーよ"
+    answer: str = "なんも回答が投げられてねーよ"
+
+
+
+
+class question_ticket_go(BaseModel):
     user_id:int
-    message:str
+    question:str
     

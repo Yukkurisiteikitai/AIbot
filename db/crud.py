@@ -4,6 +4,7 @@ from sqlalchemy.future import select # SQLAlchemy 1.4以降の非同期select
 from sqlalchemy.orm import selectinload # リレーションを効率的にロードするため
 
 from . import models, schemas
+from typing import Optional
 import uuid # thread_id生成用など
 import datetime
 
@@ -97,6 +98,7 @@ async def edit_message(db: AsyncSession, message_id: int, new_context: str) -> O
         db_message.edit_history = []
 
     # SQLAlchemyは変更を検知するために新しいリストを割り当てる必要がある場合がある
+    current_history = []
     current_history = list(db_message.edit_history)
     current_history.append(edit_entry.model_dump()) # Pydantic V2: model_dump(), V1: dict()
     db_message.edit_history = current_history # 更新
