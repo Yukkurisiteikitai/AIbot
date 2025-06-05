@@ -69,6 +69,51 @@ const userInput = document.getElementById('userInput');
         }
     }
 
+    // --- ask関数 (LM Studio APIと通信) ---
+    /**
+     * LM Studio APIに質問を送信し、回答を取得します。
+     * @param {string} question - モデルに尋ねたい質問。
+     * @param {string} [options.system_prompt] - システムプロンプト。
+     * @returns {Promise<object>} サーバーからのレスポンス。
+     */
+    my_API = 'http://127.0.0.1:8000/ai/question/ask'; // FastAPIサーバーのURL
+    async function ask_AI_API(question) {
+        const payload = {
+            question: question,
+            user_id: "user123"
+            // userInputAnalysis: options.userInputAnalysis // API側が対応していれば送信
+        };
+
+        console.log("Send My api:", payload); // デバッグ用
+
+
+        try {
+            const response = await fetch(my_API, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                let errorDetails = `HTTP error! Status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorDetails = errorData.error || JSON.stringify(errorData);
+                } catch (e) {
+                    const textError = await response.text();
+                    errorDetails += textError ? ` - ${textError}` : " - No further details from server.";
+                }
+                throw new Error(errorDetails);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Error calling LM Studio API:", error);
+            throw error; // 呼び出し元で処理できるように再スロー
+        }
+    }
+
 
     // --- 編集履歴と入力分析 ---
     function escapeHtml(unsafe) {
