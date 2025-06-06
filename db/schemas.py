@@ -99,3 +99,15 @@ class Feedback(FeedbackBase):
         # orm_mode = True
     # Pydantic V2
         model_config = ConfigDict(from_attributes=True)
+
+# Question
+
+class QuestionBase(BaseModel):
+    user_id:int
+
+class QuestionCreate(QuestionBase):
+    why_question:str
+
+
+class QuestionData(QuestionCreate):
+    question_id:int

@@ -145,3 +145,62 @@ async def create_feedback(db: AsyncSession, feedback_data: schemas.FeedbackCreat
     await db.commit()
     await db.refresh(db_feedback)
     return db_feedback
+
+
+import random
+import datetime
+async def create_Question(db: AsyncSession, question:str, why_question:str, user_id:int, thread_id:str="NOOooooooooooIDDDDDD-Thread") -> models.Question:
+    db_quesion = models.Question(
+        # question_id = random.randint(0,7498370487498270847289)        #Column(Integer, primary_key=True, autoincrement=True, index=True)
+        user_id = user_id #Column(Integer, ForeignKey("User.user_id"), nullable=False, index=True)
+        thread_id  = thread_id#Column(String, ForeignKey("Thread.thread_id"), nullable=True, index=True)
+        question_text  = question
+        reason_for_question  = question # 必須でなければ nullable=True
+        priority  = 1
+        status  = 'pending'
+        created_at  = datetime.datetime()
+        related_message_id  = why_question
+        # source  = "信頼性の強さみたいなもの?"
+    )
+    db.add(db_quesion)
+    await db.commit()
+    await db.refresh(db_quesion)
+
+
+
+async def get_question_for_user_id(db: AsyncSession,user_id:int, skip: int = 0, limit: int = 100)
+    result = await db.execute(
+        select(models.Question)
+        .filter(models.Question.user_id == user_id)
+        .order_by(models.Message.timestamp) # 時系列順
+        .offset(skip)
+        .limit(limit)
+        # .options(selectinload(models.Question.sender)) # sender情報も取得
+    )
+    return result.scalars().all()
+
+
+async def get_question_for_question_id(db: AsyncSession, question_id: int, skip: int = 0, limit: int = 100):
+    result = await db.execute(
+        select(models.Question)
+        .filter(models.Question.question_id == question_id)
+        .order_by(models.Message.timestamp) # 時系列順
+        .offset(skip)
+        .limit(limit)
+        # .options(selectinload(models.Question.sender)) # sender情報も取得
+    )
+    return result.scalars().all()
+
+
+# idではなく番号で呼ばれるような気がしなくもない
+
+async def get_question_for_feedback(db: AsyncSession, q_context: str, skip: int = 0, limit: int = 100):
+    result = await db.execute(
+        select(models.Question)
+        .filter(models.Question.question_text == q_context)
+        .order_by(models.Message.timestamp) # 時系列順
+        .offset(skip)
+        .limit(limit)
+        # .options(selectinload(models.Question.sender)) # sender情報も取得
+    )
+    return result.scalars().all()

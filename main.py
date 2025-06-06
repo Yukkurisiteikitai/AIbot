@@ -107,14 +107,15 @@ async def get_init_question(ticket: thread_tiket,request: Request):
     # }
     internal_api_headers = {"Content-Type": "application/json"}
 
-    async with httpx.AsyncClient() as client:
-        thread_data = await call_internal_api(
-            client=client
-            base_url=base_url,
-            method="POST",
-            endpoint="/db/threads",
-            headers=internal_api_headers
-        )
+    # async with httpx.AsyncClient() as client:
+    #     thread_data = await call_internal_api(
+    #         client=client
+    #         base_url=base_url,
+    #         method="POST",
+    #         endpoint="/db/threads",
+    #         headers=internal_api_headers
+    #     )
+
     
     # b[/db/thread/new]
     # POST
@@ -140,7 +141,7 @@ async def get_init_question(ticket: thread_tiket,request: Request):
     #     {
     #         user_id:int
     #     }
-    
+
     # questions:list = get_questions(user_id=ticket.user_id)
     
     # return
@@ -159,6 +160,9 @@ async def get_init_question(ticket: thread_tiket,request: Request):
     #         question:str -> {questions[0]}
     #     }
     
+    "/ai/question/ask"
+
+
     # questions[0]は削除される
     
 

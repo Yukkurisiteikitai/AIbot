@@ -61,6 +61,7 @@ async def call_internal_api(
         # ここでログを取るのが良い
         print(f"HTTPStatusError: {error_detail}") # 実際にはロギングライブラリを使う
         raise HTTPException(status_code=500, detail="An internal API call failed.") # クライアントには汎用的なエラーを返す
+
     except httpx.RequestError as e:
         # ネットワーク関連のエラー
         print(f"RequestError: Internal API connection error to {e.request.url}: {e}")
