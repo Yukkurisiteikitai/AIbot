@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Optional, Union, Set
 import db_manager
 from datetime import datetime
-from llm_analyzer import LLMAnalyzer
+from question_agent.llm_analyzer import LLMAnalyzer
 import asyncio
 
 logger = logging.getLogger('discord')

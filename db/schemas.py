@@ -1,5 +1,5 @@
 # app/schemas.py
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field,ConfigDict
 from typing import List, Optional, Dict, Any
 import datetime # Pydanticでdatetime型を扱うために必要
 
@@ -20,9 +20,9 @@ class User(UserBase):
 
     # Pydantic V1
     class Config:
-        orm_mode = True
-    # Pydantic V2
-    # model_config = ConfigDict(from_attributes=True)
+        # orm_mode = True
+        # Pydantic V2
+        model_config = ConfigDict(from_attributes=True)
 
 
 # --- Message Schemas ---
@@ -48,9 +48,9 @@ class Message(MessageBase):
 
     # Pydantic V1
     class Config:
-        orm_mode = True
-    # Pydantic V2
-    # model_config = ConfigDict(from_attributes=True)
+        # orm_mode = True
+        # Pydantic V2
+        model_config = ConfigDict(from_attributes=True)
 
 
 # --- Thread Schemas ---
@@ -74,9 +74,9 @@ class Thread(ThreadBase):
 
     # Pydantic V1
     class Config:
-        orm_mode = True
+        # orm_mode = True
     # Pydantic V2
-    # model_config = ConfigDict(from_attributes=True)
+        model_config = ConfigDict(from_attributes=True)
 
 
 # --- Feedback Schemas ---
@@ -96,6 +96,6 @@ class Feedback(FeedbackBase):
 
     # Pydantic V1
     class Config:
-        orm_mode = True
+        # orm_mode = True
     # Pydantic V2
-    # model_config = ConfigDict(from_attributes=True)
+        model_config = ConfigDict(from_attributes=True)

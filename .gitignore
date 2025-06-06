@@ -9,3 +9,4 @@ models
 config.yaml
 HelloWOrld
 cuda_logs
+*.db
