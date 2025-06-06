@@ -1,9 +1,10 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter,Request
 from runtime.runtime import Runtime
 import asyncio
+import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from api_module import question_tiket, thread_tiket
+from api_module import question_tiket, thread_tiket, call_internal_api,get_server_host_data
 
 # other router
 import api_use_db
@@ -19,10 +20,6 @@ origins = [
     "http://localhost:8010",
     "http://127.0.0.1",
     "http://127.0.0.1:8010",
-    # もし特定のWebページから呼び出す場合は、そのページのオリジンを追加
-    # 例: "http://your-frontend-domain.com", "http://localhost:3000" (React/Vue/Angularなど)
-    # 開発中の場合は、全てのオリジンを許可するために "*" を使うこともできますが、
-    # 本番環境ではセキュリティリスクが高まるため、具体的なオリジンを指定してください。
     "null" # <--- ★この行を必ず追加してください。Developer Consoleで`null`オリジンからアクセスするために必要です。
 ]
 
@@ -44,7 +41,6 @@ async def startup_database_initialize():
     """
     アプリケーション起動時にDBを初期化する
     """
-
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("Database tables checked/created.")
@@ -60,19 +56,22 @@ ai_router = APIRouter(
     # 依存関係をルーター全体に適用することも可能 (ここでは省略)
 )
 
+
 # 2. /ai/question プレフィックスを持つルーターを定義 (ai_routerの子として)
 question_router = APIRouter(
     prefix="/question",
-    tags=["AI Questions"], # Swagger UI でグループ化されるタグ
+    tags=["AI Questions"], 
 )
 
+# 3. /db プレフィクスを持つルーターを定義
 db_router = APIRouter(
     prefix="/db",
-    tags=["Data sorce"], # Swagger UI でグループ化されるタグ
+    tags=["Data sorce"], 
 )
 
 
 
+# AIを動かす用のruntime
 runtime = Runtime(config_path="config.yaml")
 
 
@@ -95,18 +94,27 @@ def get_user_help():
 
 
 @question_router.post("/")
-def get_init_question(ticket: thread_tiket):
+async def get_init_question(ticket: thread_tiket,request: Request):
     """
     質問システムの初期化エンドポイント
     ここでは質問の初期化を行う
     """
+    base_url = get_server_host_data(request=request)
 
     # {
     #     user_id:int,
     #     message:str,
     # }
+    internal_api_headers = {"Content-Type": "application/json"}
 
-    
+    async with httpx.AsyncClient() as client:
+        thread_data = await call_internal_api(
+            client=client
+            base_url=base_url,
+            method="POST",
+            endpoint="/db/threads",
+            headers=internal_api_headers
+        )
     
     # b[/db/thread/new]
     # POST

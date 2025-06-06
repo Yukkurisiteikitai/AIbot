@@ -76,3 +76,28 @@ class Feedback(Base):
         CheckConstraint(correct >= -2, name='correct_min_check'),
         CheckConstraint(correct <= 2, name='correct_max_check'),
     )
+
+class Question(Base):
+    __tablename__ = "Question"
+
+    question_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    
+    thread_id  = Column(String, ForeignKey=("Question.question_id"), nullable=True) # - この質問が特定の会話スレッドに関連している場合。汎用的な質問の場合はNULLでも良いかもしれません。
+    question_text  = Column(String, nullable=False) # - AIがユーザーに投げかける質問の本文。（`need_question` に相当）
+    reason_for_question  = Column(String, nullable=False)#` - なぜこの質問をするのかの理由や背景（AI内部用、デバッグ用）。（`why_question` に相当）
+    priority  = Column(Integer, default=0, nullable=False)#` - 質問の優先度。数値が高いほど優先度が高いなど、ルールを決めます。（`need_level` のアイデア）
+    status  = Column(String, nullable=False, default='pending')#  CHECK(status IN ('pending', 'asked', 'answered', 'skipped'))#` - 質問の状態。
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    # *   `pending`: 質問が生成されたが、まだユーザーに提示されていない。
+    # *   `asked`: ユーザーに提示されたが、まだ回答されていない。
+    # *   `answered`: ユーザーが回答した。
+    # *   `skipped`: ユーザーがスキップした、またはシステムが何らかの理由で提示を取りやめた。
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+    asked_at  = Column(DateTime(timezone=True), nullable=True, server_default=func.now())
+    answered_at  = Column(DateTime(timezone=True), nullable=True, server_default=func.now())#DATETIME, NULLABLE` - ユーザーがこの質問に回答した日時。
+    related_message_id  = Column(Integer,ForeignKey=("Message.message_id"),nullable=True)# REFERENCES Message (message_id), NULLABLE)#` - この質問が、ユーザーの特定のメッセージへの応答として生成された場合、そのメッセージのID。
+    source  = Column(TEXT, nullable=True)#` - この質問が生成された元（例: "episode_analysis", "feedback_trigger", "initial_questions"など）。
+    __table_args__ = (
+        CheckConstraint(status.in_(['pending', 'asked', 'answered', 'skipped']), name='status_check')
+    )
