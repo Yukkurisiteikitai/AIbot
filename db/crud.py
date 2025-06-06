@@ -47,13 +47,26 @@ async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, own
     db.add(db_thread)
     await db.commit()
     await db.refresh(db_thread)
-    return db_thread
+
+
+    result = await db.execute(
+        select(models.Thread)
+        .options(selectinload(models.Thread.messages)) # messages を事前にロード
+        .filter(models.Thread.thread_id == db_thread.thread_id)
+    )
+    loaded_thread = result.scalars().first()
+    return loaded_thread if loaded_thread else db_thread # loaded_thread が取得できればそれを使う    
+
 
 async def get_thread(db: AsyncSession, thread_id: str, include_messages: bool = False):
     query = select(models.Thread).filter(models.Thread.thread_id == thread_id)
     if include_messages:
         # N+1問題を避けるためにselectinloadを使う
-        query = query.options(selectinload(models.Thread.messages).options(selectinload(models.Message.sender)))
+        query = query.options(
+            selectinload(models.Thread.messages).options(
+                    selectinload(models.Message.sender)
+                    )
+                )
     result = await db.execute(query)
     return result.scalars().first()
 
@@ -102,7 +115,6 @@ async def edit_message(db: AsyncSession, message_id: int, new_context: str) -> O
     current_history = list(db_message.edit_history)
     current_history.append(edit_entry.model_dump()) # Pydantic V2: model_dump(), V1: dict()
     db_message.edit_history = current_history # 更新
-
     db_message.context = new_context
     db_message.timestamp = datetime.datetime.now(datetime.timezone.utc) # 最終更新日時を更新
     await db.commit()

@@ -7,8 +7,12 @@ from api_module import question_tiket, thread_tiket
 
 # other router
 import api_use_db
-
 app = FastAPI()
+
+#DB関連
+from db.db_database import async_engine
+from db.models import Base
+
 
 origins = [
     "http://localhost",
@@ -31,6 +35,20 @@ app.add_middleware(
 )
 # region READER_tool(基本的に譲歩を取得する)
 # AI の本体のモデル情報、CPUやGPUなどの使用状況が余裕があるか?具体的にどれくらいあるか
+
+from contextlib import asynccontextmanager
+
+# 初期化
+@app.on_event("startup")
+async def startup_database_initialize():
+    """
+    アプリケーション起動時にDBを初期化する
+    """
+
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("Database tables checked/created.")
+
 
 
 # ルーディングの設定
@@ -200,6 +218,7 @@ def get_flow():
     # ここでは仮にフロー情報を返す
     return {"current_flow": "default_flow"}
 
+# region フロー
 @app.post("/flow")
 def set_flow():
     """

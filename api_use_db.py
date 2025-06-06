@@ -23,17 +23,27 @@ async def get_current_user_mock() -> models.User:
     return models.User(user_id=1, email="test@example.com", name="Test User", password_hash="dummy")
 
 
+# api_use_db.py (またはスレッドのルーターファイル)
 @router.post("/", response_model=schemas.Thread, status_code=status.HTTP_201_CREATED)
 async def create_new_thread(
     thread_data: schemas.ThreadCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user_mock) # 認証済みユーザーを取得
+    current_user: models.User = Depends(get_current_user_mock)
 ):
-    # thread_data.owner_user_id = current_user.user_id # crud側で設定するので不要
-    db_thread = await crud.create_thread(db=db, thread_data=thread_data, owner_user_id=current_user.user_id)
-    if not db_thread: # 何らかの理由で作成失敗した場合 (通常はcrud内で例外発生)
+    # まずスレッド本体を作成
+    created_thread_basic_info = await crud.create_thread(db=db, thread_data=thread_data, owner_user_id=current_user.user_id)
+    if not created_thread_basic_info:
         raise HTTPException(status_code=400, detail="Thread could not be created")
-    return db_thread
+
+    # 次に、リレーションシップを含めて完全にロードされたスレッドオブジェクトを取得して返す
+    # これにより、レスポンスモデルのシリアライズ時に遅延読み込みが発生するのを防ぐ
+    db_thread_with_relations = await crud.get_thread(db, thread_id=created_thread_basic_info.thread_id, include_messages=True)
+    if not db_thread_with_relations:
+        # 作成直後に見つからないのは通常ありえないが、念のため
+        raise HTTPException(status_code=500, detail="Failed to retrieve created thread with details")
+
+    return db_thread_with_relations
+
 
 @router.get("/{thread_id}", response_model=schemas.Thread)
 async def read_thread_details(
