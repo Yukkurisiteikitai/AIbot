@@ -64,10 +64,10 @@ question_router = APIRouter(
 )
 
 # 3. /db プレフィクスを持つルーターを定義
-db_router = APIRouter(
-    prefix="/db",
-    tags=["Data sorce"], 
-)
+# db_router = APIRouter(
+#     prefix="/db",
+#     tags=["Data sorce"], 
+# )
 
 
 
@@ -105,8 +105,9 @@ async def get_init_question(ticket: thread_tiket,request: Request):
     #     user_id:int,
     #     message:str,
     # }
-    internal_api_headers = {"Content-Type": "application/json"}
+    # internal_api_headers = {"Content-Type": "application/json"}
 
+    #　make スレッド
     # async with httpx.AsyncClient() as client:
     #     thread_data = await call_internal_api(
     #         client=client
@@ -115,6 +116,11 @@ async def get_init_question(ticket: thread_tiket,request: Request):
     #         endpoint="/db/threads",
     #         headers=internal_api_headers
     #     )
+
+        # next_question = thread_data["question"][0]
+        
+        
+        
 
     
     # b[/db/thread/new]
@@ -278,7 +284,7 @@ def read_item(item_id: int, q: str = None):
 
 # ルーターのデプロイ
 ai_router.include_router(question_router)
-db_router.include_router(api_use_db.router)
+# db_router.include_router(api_use_db.router)
 
 app.include_router(ai_router)
-app.include_router(db_router)
+app.include_router(api_use_db.router)

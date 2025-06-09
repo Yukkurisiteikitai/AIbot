@@ -5,24 +5,27 @@ import datetime # Pydanticでdatetime型を扱うために必要
 
 # Pydantic V2の場合: from pydantic import ConfigDict
 
+
 # --- User Schemas ---
 class UserBase(BaseModel):
     email: EmailStr
     name: Optional[str] = None
 
 class UserCreate(UserBase):
-    password: str
+    password: str # パスワードは作成時に平文で受け取り、サーバー側でハッシュ化する
 
-class User(UserBase):
+class UserUpdate(BaseModel): # ユーザー情報更新用 (部分更新を想定)
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    # パスワード変更は別のエンドポイントや特別な処理を挟むことが多いので、ここでは含めない例
+
+class User(UserBase): # APIレスポンス用 (DBモデルから変換)
     user_id: int
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    # password_hash は通常レスポンスに含めない
 
-    # Pydantic V1
-    class Config:
-        # orm_mode = True
-        # Pydantic V2
-        model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True) # Pydantic V2
 
 
 # --- Message Schemas ---
@@ -100,14 +103,35 @@ class Feedback(FeedbackBase):
     # Pydantic V2
         model_config = ConfigDict(from_attributes=True)
 
-# Question
 
-class QuestionBase(BaseModel):
-    user_id:int
+# --- Question Schemas ---
 
-class QuestionCreate(QuestionBase):
-    why_question:str
+class QuestionBase(BaseModel): # Question作成・更新のベース
+    question_text: str
+    reason_for_question: Optional[str] = None
+    thread_id: Optional[str] = None
+    priority: int = 0
+    status: str = 'pending' # デフォルト値、またはリクエストで指定
+    source: Optional[str] = None
+    related_message_id: Optional[int] = None
+
+class QuestionCreate(QuestionBase): # POSTリクエストボディ用
+    pass # QuestionBase を継承し、user_id はパスパラメータで取るのでここには不要
+
+class QuestionUpdate(BaseModel): # PUTリクエストボディ用 (部分更新)
+    question_text: Optional[str] = None
+    reason_for_question: Optional[str] = None
+    priority: Optional[int] = None
+    status: Optional[str] = None
+    # ... 更新したいフィールドをOptionalで定義
+
+class Question(QuestionBase): # GETレスポンス用 (DBモデルから変換)
+    question_id: int
+    user_id: int
+    created_at: datetime.datetime # datetime をインポート
+    asked_at: Optional[datetime.datetime] = None
+    answered_at: Optional[datetime.datetime] = None
+
+    model_config = ConfigDict(from_attributes=True) # Pydantic V2
 
 
-class QuestionData(QuestionCreate):
-    question_id:int
