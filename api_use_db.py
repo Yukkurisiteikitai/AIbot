@@ -195,6 +195,7 @@ async def read_users_list(
     users = await crud.get_users(db, skip=skip, limit=limit)
     return users
 
+# 認証について
 @user_router.get("/{user_id}", response_model=schemas.User)
 async def read_user_details(
     user_id: int,
@@ -245,8 +246,3 @@ async def remove_user(
 router.include_router(question_router)
 router.include_router(thread_router)
 router.include_router(user_router)
-
-# ai_router.include_router(question_router)
-# db_router.include_router(api_use_db.router)
-
-# 他のエンドポイント (スレッド一覧、メッセージ編集など) も同様に作成
