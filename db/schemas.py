@@ -55,6 +55,10 @@ class Message(MessageBase):
         # Pydantic V2
         model_config = ConfigDict(from_attributes=True)
 
+class MessageCreate(MessageBase):
+    sender_user_id: Optional[int] = None
+    answered_question_id: Optional[int] = None # ★追加
+
 
 # --- Thread Schemas ---
 class ThreadBase(BaseModel):
@@ -124,6 +128,13 @@ class QuestionUpdate(BaseModel): # PUTリクエストボディ用 (部分更新)
     priority: Optional[int] = None
     status: Optional[str] = None
     # ... 更新したいフィールドをOptionalで定義
+
+class NextQuestionResponse(BaseModel): # schemas.py に定義するのが望ましい
+    question_id: Optional[int] = None
+    question_text: Optional[str] = None
+    guidance: Optional[str] = None # AIが生成した回答ガイダンス
+    status: Optional[str] = None # 'asked' や 'no_pending_questions' など
+
 
 class Question(QuestionBase): # GETレスポンス用 (DBモデルから変換)
     question_id: int

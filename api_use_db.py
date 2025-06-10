@@ -158,7 +158,85 @@ async def create_question_for_user_endpoint( # ★関数名を変更し、役割
 
     return db_question # 作成されたQuestionオブジェクトを返す
 
+@question_router.get("/users/{user_id}/next", response_model=schemas.NextQuestionResponse)
+async def get_next_pending_question_for_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_mock) # 認証
+):
+    if current_user.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
+    # データベースから次に提示すべき質問を取得 (優先度順、作成日順など)
+    pending_questions = await crud.get_questions_for_user_id(db, user_id=user_id, status='pending', limit=1) # crud関数を調整
+
+    if not pending_questions:
+        return schemas.NextQuestionResponse(status="no_pending_questions", guidance="特に聞きたいことは見つかりませんでした。何かお話ししたいことはありますか？")
+
+    next_question_db = pending_questions[0]
+
+    # ★★★ AIロジック: 質問に対するガイダンス生成 ★★★
+    # (例: next_question_db.question_text と meta_question.yaml を基にLLMで生成)
+    generated_guidance = f"この質問「{next_question_db.question_text}」について、具体的なエピソードを交えながら、あなたの考えや感情を詳しく教えてください。" # 仮のガイダンス
+
+    # 質問のステータスを 'asked' に更新し、asked_at を記録
+    # (crudに関数を用意: update_question_status_and_timestamp)
+    updated_question = await crud.update_question_status( # この関数をcrud.pyに作成
+        db,
+        question_id=next_question_db.question_id,
+        new_status='asked',
+        set_asked_at=True
+    )
+    if not updated_question:
+        # 更新に失敗した場合のフォールバック
+         raise HTTPException(status_code=500, detail="Failed to update question status")
+
+
+    return schemas.NextQuestionResponse(
+        question_id=updated_question.question_id,
+        question_text=updated_question.question_text,
+        guidance=generated_guidance,
+        status="asked"
+    )
+
+@thread_router.post("/{thread_id}/messages/", response_model=schemas.Message, status_code=status.HTTP_201_CREATED)
+async def add_message_to_thread(
+    thread_id: str,
+    message_data: schemas.MessageCreate, # sender_user_id, answered_question_id を含む
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_mock)
+):
+    # ... (既存のスレッド存在確認、認可チェック) ...
+
+    if message_data.role == "user":
+        message_data.sender_user_id = current_user.user_id
+    elif message_data.role == "assistant": # "system", "ai_question" など他の非ユーザーロールも同様に
+        message_data.sender_user_id = None
+
+    # メッセージをDBに保存
+    db_message = await crud.create_message(db=db, message_data=message_data, thread_id=thread_id) # crud.create_messageもanswered_question_idを無視するように
+
+    if message_data.answered_question_id and message_data.role == "user":
+        # ユーザーが質問に回答した場合、Questionテーブルを更新
+        await crud.update_question_status( # この関数をcrud.pyに作成
+            db,
+            question_id=message_data.answered_question_id,
+            new_status='answered',
+            set_answered_at=True,
+            user_id_check=current_user.user_id # オプション: 回答者が質問対象者か確認
+        )
+
+        # ★★★ ここでバックグラウンドでAI処理をトリガー ★★★
+        # (例: FastAPIの BackgroundTasks を使う)
+        # background_tasks.add_task(process_user_answer_with_ai, db_message, current_user.user_id, thread_id)
+        # process_user_answer_with_ai 関数内で、
+        # - 回答の適切性チェック
+        # - 不足情報・深掘り質問生成 -> crud.create_question
+        # - フェーズ終了判定
+        # - タグの分析結果推論 -> Episodeデータ生成
+        # を行う。
+
+    return db_message
 
 # User API
 
@@ -240,6 +318,8 @@ async def remove_user(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user # または status_code=204 でボディなし
+
+
 
 
 # deploy

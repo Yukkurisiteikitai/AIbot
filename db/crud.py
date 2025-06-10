@@ -230,6 +230,35 @@ async def get_question_for_feedback(db: AsyncSession, q_context: str, skip: int 
     return result.scalars().all()
 
 
+async def update_question_status( # ★★★ この関数 ★★★
+    db: AsyncSession,
+    question_id: int,
+    new_status: str,
+    set_asked_at: bool = False,
+    set_answered_at: bool = False,
+    user_id_check: Optional[int] = None
+) -> Optional[models.Question]:
+    query = select(models.Question).filter(models.Question.question_id == question_id)
+    if user_id_check is not None:
+        query = query.filter(models.Question.user_id == user_id_check)
+
+    result = await db.execute(query)
+    db_question = result.scalars().first()
+
+    if not db_question:
+        return None
+
+    db_question.status = new_status
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    if set_asked_at:
+        db_question.asked_at = now_utc
+    if set_answered_at:
+        db_question.answered_at = now_utc
+
+    await db.commit()
+    await db.refresh(db_question)
+    return db_question
+
 
 # --- User CRUD ---
 
