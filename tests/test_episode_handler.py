@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from unittest.mock import Mock, patch, AsyncMock
 from episode_handler import EpisodeHandler
-from llm_analyzer import LLMAnalyzer
+from question_agent.llm_analyzer import LLMAnalyzer
 
 # モック用のLLMアナライザー
 class MockLLMAnalyzer:
