@@ -4,7 +4,7 @@ import asyncio
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from api_module import question_tiket, thread_tiket, call_internal_api,get_server_host_data
+from api_module import question_tiket, thread_tiket, call_internal_api,get_server_host_data, question_ticket_go
 
 # other router
 import db.api_use_db as api_use_db
@@ -32,8 +32,8 @@ app.add_middleware(
 )
 # region READER_tool(基本的に譲歩を取得する)
 # AI の本体のモデル情報、CPUやGPUなどの使用状況が余裕があるか?具体的にどれくらいあるか
-
 from contextlib import asynccontextmanager
+
 
 # 初期化
 @app.on_event("startup")
@@ -182,6 +182,62 @@ async def get_init_question(ticket: thread_tiket,request: Request):
         return {"error": str(e)}
     
 
+# profile
+from utils.question_metadata import QuestionMetadataManager
+q_manager = QuestionMetadataManager(config_path="configs/meta_question.yaml")
+system_init = True
+
+class qu_t(BaseModel):
+    user_id:int
+    need_theme:str = "Not Found Theme"
+
+@question_router.post("/make")
+async def question_make(contextHello:qu_t,request:Request):
+    if contextHello.need_theme == "Not Found Theme":
+        return {"state":"error","context":"Not Found Theme"}
+    
+    base_url = get_server_host_data(request=request)["base_url"]
+    internal_api_headers = {"Content-Type": "application/json"}
+    # 　make スレッド
+    need_items = ["what","when","how"]
+
+    if system_init == False: 
+        need_items.append("where")
+        need_items.append("why")
+    
+    addList = []
+
+    for q_item in need_items:
+        # 質問情報
+        prompt = f"""
+あなたは質問のプロフェッショナルです。
+{contextHello.need_theme}について{q_item}の観点から質問を考えてください。
+"""     
+        url = f"{base_url}/ai/question/ask"
+        print(base_url)
+        # シンプル質問
+        async with httpx.AsyncClient() as client:
+            answer = await call_internal_api(
+                client=client,
+                base_url=base_url,
+                json_payload={"question":prompt,"user_id":contextHello.user_id},
+                method="POST",
+                endpoint="/ai/question/ask",
+                headers=internal_api_headers
+            )    
+        
+        print(f"answer:{answer}")
+        addList.append(answer)
+        
+        # そのプロンプトでの回答
+        # question = await 
+        # Request
+        # ちゃんとコード書けててね言われてしまったので
+
+    return addList
+         
+    
+
 @question_router.get("/check")
 def check_questions():
     """
@@ -206,7 +262,7 @@ def ask_question():
 
 
 @question_router.post("/ask")
-async def ask_reply(ticket:question_tiket):
+async def ask_reply(ticket:question_ticket_go):
     """
     AIがユーザーに対する質問を投げるエンドポイント
     現在セットされている質問の中から順番に選ぶ
