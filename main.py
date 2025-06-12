@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from api_module import question_tiket, thread_tiket, call_internal_api,get_server_host_data
 
 # other router
-import api_use_db
+import db.api_use_db as api_use_db
 app = FastAPI()
 
 #DB関連
