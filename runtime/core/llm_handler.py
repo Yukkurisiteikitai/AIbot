@@ -95,34 +95,6 @@ class LlamaHandler:
     temperature: float = 1.0 # temperature は sample メソッドで使う
     ) -> str:
         try:
-            # プロンプトをトークン化
-            # prompt_tokens = self.llm.tokenize(prompt.encode('utf-8'), add_bos=False) # add_bos はモデルによる
-            # print(f"Tokenized simple_prompt: {prompt_tokens}")
-            # print(f"Detokenized for check: {self.llm.detokenize(prompt_tokens).decode('utf-8', errors='replace')}")
-
-            # print(f"プロンプトトークンを評価中 (simple)...")
-            # self.llm.eval(prompt_tokens) # ★ トークン化されたリストを渡す
-            # print(f"プロンプトトークンの評価完了 (simple)。")
-
-            # # ... (以降のトークン生成ループは同じ) ...
-            # max_new_tokens = max_tokens # 引数のmax_tokensを使用
-            # generated_tokens = []
-
-            # for i in range(max_new_tokens):
-            #     next_token = self.llm.sample(temp=temperature) # 引数のtemperatureを使用
-            #     if next_token == self.llm.token_eos() or next_token == 106: # 106は特定のモデルのEOS代替？要確認
-            #         print("  EOSトークンが生成されたため、終了します (simple)。")
-            #         break
-            #     generated_tokens.append(next_token)
-            #     self.llm.eval([next_token])
-
-            # decoded_text = ""
-            # if generated_tokens:
-            #     decoded_text = self.llm.detokenize(generated_tokens).decode('utf-8', errors='replace')
-            #     print(f"デコードされたテキスト (simple): {decoded_text}")
-            # else:
-            #     print("デコードするトークンがありません (simple)。")
-            
             # Define the chat history with messages
             chat_history = [
                 {"role": "user", "content": prompt}
@@ -134,7 +106,6 @@ class LlamaHandler:
             # Output the model's response
             print(output)
             return output
-            # return decoded_text
             
         except Exception as e:
             self.logger.error(f"Simple generation error: {e}", exc_info=True) # exc_info=Trueでトレースバックも記録
