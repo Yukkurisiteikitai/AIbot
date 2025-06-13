@@ -6,7 +6,8 @@ bot.log
 test_config.json
 models
 .DS_Store
-config.yaml
 HelloWOrld
 cuda_logs
 *.db
+test_cuda_pip
+./config.yaml
