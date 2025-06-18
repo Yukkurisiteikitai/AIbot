@@ -43,7 +43,7 @@ async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, own
     generated_thread_id = prefix + str(uuid.uuid4())
 
     db_thread = models.Thread(
-        thread_id=generated_thread_id,
+        id=generated_thread_id,
         owner_user_id=owner_user_id,
         mode=thread_data.mode,
         title=thread_data.title,
@@ -58,7 +58,7 @@ async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, own
     result = await db.execute(
         select(models.Thread)
         .options(selectinload(models.Thread.messages)) # messages を事前にロード
-        .filter(models.Thread.id == db_thread.thread_id)
+        .filter(models.Thread.id == db_thread.id)
     )
     loaded_thread = result.scalars().first()
     return loaded_thread if loaded_thread else db_thread # loaded_thread が取得できればそれを使う    
@@ -196,24 +196,20 @@ async def get_questions_for_user_id(
     query = select(models.Question).filter(models.Question.user_id == user_id)
     if status:
         query = query.filter(models.Question.status == status)
-    query = query.order_by(models.Question.priority.desc(), models.Question.created_at.asc()) # 例: 優先度高い順、作成日古い順
-    query = query.offset(skip).limit(limit)
-    # もしリレーションシップをロードするなら
-    # query = query.options(selectinload(models.Question.user), selectinload(models.Question.thread))
+        query = query.order_by(models.Question.priority.desc(), models.Question.created_at.asc()) # 例: 優先度高い順、作成日古い順
+        query = query.offset(skip).limit(limit)
+        # もしリレーションシップをロードするなら
+        # query = query.options(selectinload(models.Question.user), selectinload(models.Question.thread))
     result = await db.execute(query)
     return result.scalars().all()
 
 
 async def get_question_for_question_id(db: AsyncSession, question_id: int, skip: int = 0, limit: int = request_db_contexts_limit):
     result = await db.execute(
-        select(models.Question)
-        .filter(models.Question.question_id == question_id)
-        .order_by(models.Message.timestamp) # 時系列順
-        .offset(skip)
-        .limit(limit)
+        select(models.Question).filter(models.Question.id == question_id)
         # .options(selectinload(models.Question.sender)) # sender情報も取得
     )
-    return result.scalars().all()
+    return result.scalars().first()
 
 
 # idではなく番号で呼ばれるような気がしなくもない
