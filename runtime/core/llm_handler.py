@@ -15,6 +15,7 @@ class LlamaHandler:
             n_threads=config['n_threads'],
             n_gpu_layers=config.get('n_gpu_layers', 1),
             # n_gpu_layers=-1,
+            chat_format="gemma",
             verbose=True
         )
         self.logger = logging.getLogger(__name__)
@@ -85,6 +86,29 @@ class LlamaHandler:
             
         except Exception as e:
             self.logger.error(f"Generation error: {e}")
+            raise
+    
+    async def generate_simple(
+    self,
+    prompt: str,
+    max_tokens: int = 200,
+    temperature: float = 1.0 # temperature は sample メソッドで使う
+    ) -> str:
+        try:
+            # Define the chat history with messages
+            chat_history = [
+                {"role": "user", "content": prompt}
+            ]
+
+            # Generate a chat completion using the Llama model
+            output = self.llm.create_chat_completion(messages=chat_history)
+
+            # Output the model's response
+            print(output)
+            return output
+            
+        except Exception as e:
+            self.logger.error(f"Simple generation error: {e}", exc_info=True) # exc_info=Trueでトレースバックも記録
             raise
             
     def _decode_prompt(self, text: str,ADD_bos:bool) -> list:

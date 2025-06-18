@@ -4,7 +4,7 @@ import asyncio
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from api_module import question_tiket, thread_tiket, call_internal_api,get_server_host_data
+from api_module import question_tiket, thread_tiket, call_internal_api,get_server_host_data, question_ticket_go
 
 # other router
 import db.api_use_db as api_use_db
@@ -32,8 +32,8 @@ app.add_middleware(
 )
 # region READER_tool(基本的に譲歩を取得する)
 # AI の本体のモデル情報、CPUやGPUなどの使用状況が余裕があるか?具体的にどれくらいあるか
-
 from contextlib import asynccontextmanager
+
 
 # 初期化
 @app.on_event("startup")
@@ -182,6 +182,68 @@ async def get_init_question(ticket: thread_tiket,request: Request):
         return {"error": str(e)}
     
 
+# profile
+from utils.question_metadata import QuestionMetadataManager
+q_manager = QuestionMetadataManager(config_path="configs/meta_question.yaml")
+system_init = True
+
+class qu_t(BaseModel):
+    user_id:int
+    need_theme:str = "Not Found Theme"
+
+@question_router.post("/make")
+async def question_make(contextHello:qu_t,request:Request):
+    if contextHello.need_theme == "Not Found Theme":
+        return {"state":"error","context":"Not Found Theme"}
+    
+    base_url = get_server_host_data(request=request)["base_url"]
+    internal_api_headers = {"Content-Type": "application/json"}
+    # # 　make スレッド
+    # need_items = ["what","when","how"]
+
+    # if system_init == False: 
+    #     need_items.append("where")
+    #     need_items.append("why")
+    
+    need_items = ["どんな","いつ","どのように"]
+
+    if system_init == False: 
+        need_items.append("いつ")
+        need_items.append("なぜ")
+    
+    addList = []
+
+    for q_item in need_items:
+        # 質問情報
+        prompt = f"""
+あなたは質問のプロフェッショナルです。
+{contextHello.need_theme}について{q_item}の観点から質問を考えてください。
+"""     
+        url = f"{base_url}/ai/question/ask"
+        print(base_url)
+        # シンプル質問
+        async with httpx.AsyncClient() as client:
+            answer = await call_internal_api(
+                client=client,
+                base_url=base_url,
+                json_payload={"question":prompt,"user_id":contextHello.user_id},
+                method="POST",
+                endpoint="/ai/question/ask",
+                headers=internal_api_headers
+            )    
+        
+        print(f"answer:{answer}")
+        addList.append(answer)
+        
+        # そのプロンプトでの回答
+        # question = await 
+        # Request
+        # ちゃんとコード書けててね言われてしまったので
+
+    return addList
+         
+    
+
 @question_router.get("/check")
 def check_questions():
     """
@@ -202,22 +264,128 @@ def ask_question():
     return {"question": "あなたの名前は何ですか？"}
 
 
+# from fastapi import BackgroundTasks
+# from db.db_database import AsyncSessionLocal
+# async def generate_questions_in_background(
+#     db_session_factory: sessionmaker, # sessionmakerの型ヒント
+#     user_id: int,
+#     thread_id: str, # スレッドIDも渡す
+#     need_theme: str,
+#     is_initial_phase: bool, # system_init の状態を渡す
+#     base_url_for_llm: str,
+#     headers_for_llm: Dict[str, str]
+# ):
+#     async with db_session_factory() as db: # タスク内で新しいセッション
+#         need_items = ["what", "when", "how"]
+#         if not is_initial_phase: # 初期フェーズでなければ (つまり完了済みなら)
+#             need_items.extend(["where", "why"])
+
+#         all_generated_questions_text = []
+#         for q_item in need_items:
+#             prompt = f"""あなたは質問のプロフェッショナルです。
+# テーマ「{need_theme}」について、「{q_item}」の観点からユーザーに尋ねるべき具体的な質問を1つだけ、簡潔に考えてください。
+# 質問文のみを返してください。余計な説明や挨拶は不要です。
+# 例: テーマ「趣味」、観点「what」の場合、「あなたの主な趣味は何ですか？」
+# 質問: """
+
+#             try:
+#                 # /ai/question/ask を呼び出す (runtime.process_message 経由)
+#                 # user_id は str 型で渡す想定 (runtime.py の process_message の型ヒントによる)
+#                 response_payload = await call_internal_api(
+#                     client=httpx.AsyncClient(), # ループごとにクライアント作成は非効率だが、簡潔化のため
+#                     base_url=base_url_for_llm,
+#                     json_payload={"question": prompt, "user_id": str(user_id)}, # user_id を str に
+#                     method="POST",
+#                     endpoint="/ai/question/ask", # runtime.process_messageを呼び出すエンドポイント
+#                     headers=headers_for_llm
+#                 )
+#                 generated_question = response_payload.get("answer", "").strip()
+
+#                 if generated_question and len(generated_question) > 5 and "?" in generated_question: # 簡単なバリデーション
+#                     all_generated_questions_text.append(generated_question)
+#                     # DBに保存
+#                     await crud.create_question(
+#                         db=db,
+#                         user_id=user_id,
+#                         thread_id=thread_id, # thread_id も保存
+#                         question_text=generated_question,
+#                         why_question=f"Generated for theme '{need_theme}', aspect '{q_item}'",
+#                         priority=5, # 適宜設定
+#                         source=f"{need_theme}/{q_item}"
+#                     )
+#                     print(f"Background: Saved Q: {generated_question}")
+#                 else:
+#                     print(f"Background: Invalid Q for {need_theme}/{q_item}: {generated_question}")
+#             except Exception as e:
+#                 print(f"Background: Error generating/saving Q for {need_theme}/{q_item}: {e}")
+
+#         # (オプション) 初期フェーズ完了フラグをDBで更新
+#         if is_initial_phase and all_generated_questions_text: # 質問が生成されたら初期フェーズ完了とみなす
+#             user_to_update = await crud.get_user(db, user_id)
+#             if user_to_update:
+#                 # Userモデルに system_init_completed のような属性があると仮定
+#                 setattr(user_to_update, 'system_init_completed', True)
+#                 await db.commit()
+#                 print(f"Background: User {user_id} system_init_completed set to True.")
+
+#         print(f"Background task for user {user_id}, theme {need_theme} completed. Generated: {len(all_generated_questions_text)} questions.")
 
 
+# @question_router.post("/make", response_model=QuestionMakeResponse, status_code=status.HTTP_202_ACCEPTED)
+# async def question_make(
+#     context_hello: QuTicket, # QuTicket に thread_id を含めるように修正
+#     request: Request,
+#     background_tasks: BackgroundTasks,
+#     db: AsyncSession = Depends(get_db), # system_init_status を取得するためにDBセッションを使用
+#     current_user: models.User = Depends(get_current_user_mock) # 認証
+# ):
+#     if context_hello.need_theme == "Not Found Theme":
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="need_theme is required.")
+#     if current_user.user_id != context_hello.user_id: # 認可チェック
+#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted.")
 
+#     server_data = get_server_host_data(request=request)
+#     base_url = server_data["base_url"]
+#     internal_api_headers = {"Content-Type": "application/json"}
+
+#     # ユーザーの system_init 状態をDBから取得
+#     user_db_info = await crud.get_user(db, user_id=context_hello.user_id)
+#     if not user_db_info:
+#         raise HTTPException(status_code=404, detail="User not found to check init status.")
+#     # Userモデルに system_init_completed: bool カラムがあると仮定
+#     is_initial_phase_for_user = not getattr(user_db_info, 'system_init_completed', False)
+
+#     background_tasks.add_task(
+#         generate_questions_in_background,
+#         AsyncSessionLocal, # DBセッションファクトリを渡す
+#         context_hello.user_id,
+#         context_hello.thread_id, # QuTicket から thread_id を取得
+#         context_hello.need_theme,
+#         is_initial_phase_for_user,
+#         base_url,
+#         internal_api_headers
+#     )
+
+#     return QuestionMakeResponse(
+#         status="processing_initiated",
+#         message=f"Question generation for theme '{context_hello.need_theme}' for user {context_hello.user_id} has been initiated."
+#     )
+
+api_concurrecy_limiter = asyncio.Semaphore(4)
 @question_router.post("/ask")
-async def ask_reply(ticket:question_tiket):
-    """
-    AIがユーザーに対する質問を投げるエンドポイント
-    現在セットされている質問の中から順番に選ぶ
-    内部的にはindexで質問として利用したものをnumberとリストで管理している
-    @pram user_id: ユーザーのID
-    @pram message: ユーザーからのメッセージ(質問)
-    """
-    print(f"ユーザーID: {ticket.user_id}, 質問: {ticket.question}")
-    answer = await runtime.process_message(user_id=ticket.user_id, message=ticket.question)
-    # ここでは仮に質問を返す
-    return {"answer": answer}
+async def ask_reply(ticket:question_ticket_go):
+    async with api_concurrecy_limiter:
+        """
+        AIがユーザーに対する質問を投げるエンドポイント
+        現在セットされている質問の中から順番に選ぶ
+        内部的にはindexで質問として利用したものをnumberとリストで管理している
+        @pram user_id: ユーザーのID
+        @pram message: ユーザーからのメッセージ(質問)
+        """
+        print(f"ユーザーID: {ticket.user_id}, 質問: {ticket.question}")
+        answer = await runtime.process_message(user_id=ticket.user_id, message=ticket.question)
+        # ここでは仮に質問を返す
+        return {"answer": answer}
 
 @question_router.post("/user_answer")
 def user_answer(answer: str):

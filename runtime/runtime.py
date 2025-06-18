@@ -22,15 +22,14 @@ class Runtime:
             raise
 
         
-    async def process_message(self, user_id: str, message: str) -> str:
+    async def process_message(self, user_id: int, message: str) -> str:
         try:
             # Person Dataの取得
             # person_data_token = await self.person_data_manager.get_person_data(user_id)
             
             # レスポンス生成
-            response = await self.llama.generate(
-                prompt=message,
-                person_data_token= [2, 76444, 120211, 237048, 67923, 73727, 237536]
+            response = await self.llama.generate_simple(
+                prompt=message
             )
             
             return response
