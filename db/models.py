@@ -14,7 +14,7 @@ from .db_database import Base # あなたのBaseクラスのインポートパ�
 class User(Base):
     __tablename__ = "User"
 
-    user_id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True, nullable=True) # nameもnullable=Trueの可能性あり
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
@@ -39,8 +39,8 @@ class Thread(Base):
     __tablename__ = "Thread"
 
     # thread_id = Column(String, primary_key=True, index=True)
-    thread_id = Column(String, ForeignKey("Thread.thread_id"), primary_key=True, nullable=False, index=True) # 参照先を修正、index追加
-    owner_user_id = Column(Integer, ForeignKey("User.user_id"), nullable=False, index=True) # index=True を追加
+    id = Column(String, ForeignKey("Thread.id"), primary_key=True, nullable=False, index=True) # 参照先を修正、index追加
+    owner_user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True) # index=True を追加
     mode = Column(String, nullable=False)
     title = Column(String, nullable=True) # titleもnullable=Trueの可能性あり
     tags = Column(JSON, nullable=True)
@@ -64,9 +64,9 @@ class Thread(Base):
 class Message(Base):
     __tablename__ = "Message"
 
-    message_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    thread_id = Column(String, ForeignKey("Thread.thread_id"), nullable=False, index=True) # index=True を追加
-    sender_user_id = Column(Integer, ForeignKey("User.user_id"), nullable=True, index=True) # index=True を追加
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    thread_id = Column(String, ForeignKey("Thread.id"), nullable=False, index=True) # index=True を追加
+    sender_user_id = Column(Integer, ForeignKey("User.id"), nullable=True, index=True) # index=True を追加
     role = Column(String, nullable=False)
     context = Column(Text, nullable=False)
     feeling = Column(String, nullable=True)
@@ -92,9 +92,9 @@ class Message(Base):
 class Feedback(Base):
     __tablename__ = "Feedback"
 
-    feedback_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    message_id = Column(Integer, ForeignKey("Message.message_id"), nullable=False, index=True) # index=True を追加
-    user_id = Column(Integer, ForeignKey("User.user_id"), nullable=False, index=True) # index=True を追加
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    message_id = Column(Integer, ForeignKey("Message.id"), nullable=False, index=True) # index=True を追加
+    user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True) # index=True を追加
     correct = Column(Integer, nullable=False)
     user_comment = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
@@ -112,9 +112,9 @@ class Feedback(Base):
 class Question(Base):
     __tablename__ = "Question"
 
-    question_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    user_id = Column(Integer, ForeignKey("User.user_id"), nullable=False, index=True) # この質問が誰に向けられたか (FK)
-    thread_id  = Column(String, ForeignKey("Thread.thread_id"), nullable=True, index=True) # どのスレッドに関連するか (FK)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True) # この質問が誰に向けられたか (FK)
+    thread_id  = Column(String, ForeignKey("Thread.id"), nullable=True, index=True) # どのスレッドに関連するか (FK)
     question_text  = Column(String, nullable=False)
     reason_for_question  = Column(String, nullable=True)
     priority  = Column(Integer, default=0, nullable=False)
@@ -122,7 +122,7 @@ class Question(Base):
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
     asked_at  = Column(DateTime(timezone=True), nullable=True)
     answered_at  = Column(DateTime(timezone=True), nullable=True)
-    related_message_id  = Column(Integer, ForeignKey("Message.message_id"), nullable=True, index=True) # どのメッセージから派生したか (FK)
+    related_message_id  = Column(Integer, ForeignKey("Message.id"), nullable=True, index=True) # どのメッセージから派生したか (FK)
     source  = Column(Text, nullable=True)
 
     # Question -> User (多対一: この質問の対象ユーザー)
@@ -141,8 +141,8 @@ class Episode(Base):
 
     # --- 基本情報 (設計書 Section 2) ---
     id = Column(String, primary_key=True, index=True) # episode_id
-    thread_id = Column(String, ForeignKey("Thread.thread_id"), nullable=False)
-    user_id = Column(String, ForeignKey("User.user_id"), nullable=False) # ユーザーへのリンクも直接持つと便利
+    thread_id = Column(String, ForeignKey("Thread.id"), nullable=False)
+    user_id = Column(String, ForeignKey("User.id"), nullable=False) # ユーザーへのリンクも直接持つと便利
     timestamp = Column(DateTime, default=func.now())
     sequence_in_thread = Column(Integer, nullable=False)
     
@@ -201,7 +201,7 @@ class PersonDataEntry(Base):
     __tablename__ = "person_data_entries"
 
     id = Column(String, primary_key=True, index=True) # 各エントリの一意なID
-    user_id = Column(String, ForeignKey("User.user_id"), nullable=False)
+    user_id = Column(String, ForeignKey("User.id"), nullable=False)
     
     # --- どのタグに属するかを示す ---
     # 設計書の20個のタグ名をここに格納 (例: "significant_childhood_experiences")

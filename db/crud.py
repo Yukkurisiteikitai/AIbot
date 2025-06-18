@@ -16,7 +16,7 @@ request_db_contexts_limit = 100
 
 # --- User CRUD ---
 async def get_user(db: AsyncSession, user_id: int):
-    result = await db.execute(select(models.User).filter(models.User.user_id == user_id))
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
     return result.scalars().first()
 
 async def get_user_by_email(db: AsyncSession, email: str):
@@ -58,14 +58,14 @@ async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, own
     result = await db.execute(
         select(models.Thread)
         .options(selectinload(models.Thread.messages)) # messages を事前にロード
-        .filter(models.Thread.thread_id == db_thread.thread_id)
+        .filter(models.Thread.id == db_thread.thread_id)
     )
     loaded_thread = result.scalars().first()
     return loaded_thread if loaded_thread else db_thread # loaded_thread が取得できればそれを使う    
 
 
 async def get_thread(db: AsyncSession, thread_id: str, include_messages: bool = False):
-    query = select(models.Thread).filter(models.Thread.thread_id == thread_id)
+    query = select(models.Thread).filter(models.Thread.id == thread_id)
     if include_messages:
         # N+1問題を避けるためにselectinloadを使う
         query = query.options(
@@ -103,7 +103,7 @@ async def create_message(db: AsyncSession, message_data: schemas.MessageCreate, 
     return db_message
 
 async def edit_message(db: AsyncSession, message_id: int, new_context: str) -> Optional[models.Message]:
-    result = await db.execute(select(models.Message).filter(models.Message.message_id == message_id))
+    result = await db.execute(select(models.Message).filter(models.Message.id == message_id))
     db_message = result.scalars().first()
     if not db_message:
         return None
@@ -272,7 +272,7 @@ async def update_question_status( # ★★★ この関数 ★★★
 #     return pwd_context.hash(password)
 
 async def get_user(db: AsyncSession, user_id: int) -> Optional[models.User]:
-    result = await db.execute(select(models.User).filter(models.User.user_id == user_id))
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
     return result.scalars().first()
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[models.User]:
@@ -299,7 +299,7 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate) -> models.User
     return db_user
 
 async def update_user(db: AsyncSession, user_id: int, user_update_data: schemas.UserUpdate) -> Optional[models.User]:
-    result = await db.execute(select(models.User).filter(models.User.user_id == user_id))
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
     db_user = result.scalars().first()
     if not db_user:
         return None
@@ -317,7 +317,7 @@ async def update_user(db: AsyncSession, user_id: int, user_update_data: schemas.
     return db_user
 
 async def delete_user(db: AsyncSession, user_id: int) -> Optional[models.User]:
-    result = await db.execute(select(models.User).filter(models.User.user_id == user_id))
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
     db_user = result.scalars().first()
     if not db_user:
         return None
