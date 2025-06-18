@@ -9,8 +9,8 @@ system:
 # llama.cppの設定
 llama:
   runtime_config:
-    # model_path: "models/gemma-3-1b-it-Q4_K_M.gguf"  # モデルファイルのパス
-    model_path: "C:/Users/omede/.lmstudio/models/lmstudio-community/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q4_K_M.gguf"  # モデルファイルのパス
+    model_path: "models/gemma-3-1b-it-Q4_K_M.gguf"  # モデルファイルのパス
+    # model_path: "C:/Users/omede/.lmstudio/models/lmstudio-community/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q4_K_M.gguf"  # モデルファイルのパス
     n_ctx: 4096              # コンテキストウィンドウサイズ
     n_batch: 200             # バッチサイズ
     n_threads: 4             # CPUスレッド数

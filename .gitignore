@@ -10,4 +10,4 @@ HelloWOrld
 cuda_logs
 *.db
 test_cuda_pip
-./config.yaml
+config.yaml
