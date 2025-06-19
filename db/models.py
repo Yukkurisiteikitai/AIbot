@@ -231,3 +231,64 @@ class PersonDataEntry(Base):
         secondary="person_data_episode_link", # 関連テーブルの名前
         back_populates="person_data_entries"
     )
+
+# initの管理用のもの
+# 初期化質問管理用の新規モデル
+class InitializationQuestion(Base):
+    __tablename__ = "initialization_questions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    question_text = Column(Text, nullable=False)
+    order_index = Column(Integer, nullable=False) # 表示・処理順を管理
+    # category = Column(String, nullable=True) # オプション: 質問カテゴリ (例: "significant_childhood_experiences")
+    # sub_type = Column(String, nullable=True) # オプション: カテゴリ内タイプ (例: "A", "B")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # リレーションシップ
+    user_progress = relationship("UserQuestionProgress", back_populates="init_question")
+
+class UserQuestionProgress(Base):
+    __tablename__ = "user_question_progress"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True)
+    question_id = Column(Integer, ForeignKey("initialization_questions.id"), nullable=True, index=True)  # 初期化質問用
+    regular_question_id = Column(Integer, ForeignKey("Question.id"), nullable=True, index=True)  # 通常質問用
+    
+    answer_text = Column(Text, nullable=True)
+    ai_evaluation = Column(JSON, nullable=True)  # {state: "pass|fail", feedback: "...", score: 0-100}
+    attempt_count = Column(Integer, default=0)
+    status = Column(String, default="pending", nullable=False)  # pending, answered, passed, failed
+    
+    answered_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # リレーションシップ
+    user = relationship("User", back_populates="user_question_progress")
+    init_question = relationship("InitializationQuestion", back_populates="user_progress")
+    regular_question = relationship("Question")
+    
+    __table_args__ = (
+        CheckConstraint(status.in_(['pending', 'answered', 'passed', 'failed']), name='progress_status_check'),
+    )
+
+# AIの評価ログを保存するモデル
+class AIEvaluationLog(Base):
+    __tablename__ = "ai_evaluation_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_progress_id = Column(Integer, ForeignKey("user_question_progress.id"), nullable=False)
+    question_text = Column(Text, nullable=False)
+    answer_text = Column(Text, nullable=False)
+    
+    ai_response = Column(JSON, nullable=False)  # AI評価の生レスポンス
+    evaluation_score = Column(Integer, nullable=False)  # 0-100
+    is_passed = Column(Boolean, nullable=False)
+    feedback_text = Column(Text, nullable=True)
+    follow_up_question = Column(Text, nullable=True)
+    
+    processing_time_ms = Column(Integer, nullable=True)
+    model_version = Column(String, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
