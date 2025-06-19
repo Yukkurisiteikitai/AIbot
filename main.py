@@ -99,7 +99,7 @@ async def get_init_question(ticket: thread_tiket,request: Request):
     質問システムの初期化エンドポイント
     ここでは質問の初期化を行う
     """
-    base_url = get_server_host_data(request=request)
+    base_url:str = get_server_host_data(request=request)
 
     # {
     #     user_id:int,
@@ -192,11 +192,11 @@ class qu_t(BaseModel):
     need_theme:str = "Not Found Theme"
 
 @question_router.post("/make")
-async def question_make(contextHello:qu_t,request:Request):
+async def question_make(contextHello:qu_t,request:Request) -> list[str]:
     if contextHello.need_theme == "Not Found Theme":
         return {"state":"error","context":"Not Found Theme"}
     
-    base_url = get_server_host_data(request=request)["base_url"]
+    base_url = get_server_host_data(request=request)
     internal_api_headers = {"Content-Type": "application/json"}
     # # 　make スレッド
     # need_items = ["what","when","how"]
@@ -211,7 +211,7 @@ async def question_make(contextHello:qu_t,request:Request):
         need_items.append("いつ")
         need_items.append("なぜ")
     
-    addList = []
+    addList:list[str] = []
 
     for q_item in need_items:
         # 質問情報
@@ -219,8 +219,8 @@ async def question_make(contextHello:qu_t,request:Request):
 あなたは質問のプロフェッショナルです。
 {contextHello.need_theme}について{q_item}の観点から質問を考えてください。
 """     
-        url = f"{base_url}/ai/question/ask"
-        print(base_url)
+        # url = f"{base_url}/ai/question/ask"
+        # print(base_url)
         # シンプル質問
         async with httpx.AsyncClient() as client:
             answer = await call_internal_api(
@@ -233,16 +233,9 @@ async def question_make(contextHello:qu_t,request:Request):
             )    
         
         print(f"answer:{answer}")
-        addList.append(answer)
-        
-        # そのプロンプトでの回答
-        # question = await 
-        # Request
-        # ちゃんとコード書けててね言われてしまったので
+        addList.append(answer["answer"]) # {"answer":"answer_context"}だから
 
     return addList
-         
-    
 
 @question_router.get("/check")
 def check_questions():

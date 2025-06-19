@@ -38,7 +38,6 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate):
 
 # --- Thread CRUD ---
 async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, owner_user_id: int) -> models.Thread:
-    # thread_id の生成 (例: "cht_" + uuid)
     prefix = "cht_" if thread_data.mode == "chat" else "srh_"
     generated_thread_id = prefix + str(uuid.uuid4())
 
@@ -47,21 +46,31 @@ async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, own
         owner_user_id=owner_user_id,
         mode=thread_data.mode,
         title=thread_data.title,
-        tags=thread_data.tags,
-        meta_data=thread_data.meta_data
+        tags=thread_data.tags,  # Ensure these are suitable for JSON if that's the column type
+        meta_data=thread_data.meta_data # Ensure these are suitable for JSON
     )
     db.add(db_thread)
     await db.commit()
-    await db.refresh(db_thread)
+    await db.refresh(db_thread) # db_thread now reflects the committed state
 
+    # If you absolutely need messages loaded on the returned object from create_thread:
+    # This will issue another query to load messages for this specific thread.
+    # Note: If your response_model for the endpoint handles serialization of relationships,
+    # FastAPI/Pydantic might trigger lazy loads anyway if not handled carefully.
+    # However, for a newly created thread, 'messages' will be empty.
+    # This eager load is more useful for 'get_thread'.
+    # For a newly created thread, db_thread.messages will be an empty list.
+    # The selectinload in the re-query doesn't add much value here if messages are always empty on creation.
 
-    result = await db.execute(
-        select(models.Thread)
-        .options(selectinload(models.Thread.messages)) # messages を事前にロード
-        .filter(models.Thread.id == db_thread.id)
-    )
-    loaded_thread = result.scalars().first()
-    return loaded_thread if loaded_thread else db_thread # loaded_thread が取得できればそれを使う    
+    return db_thread
+
+    # result = await db.execute(
+    #     select(models.Thread)
+    #     .options(selectinload(models.Thread.messages)) # messages を事前にロード
+    #     .filter(models.Thread.id == db_thread.id)
+    # )
+    # loaded_thread = result.scalars().first()
+    # return loaded_thread if loaded_thread else db_thread # loaded_thread が取得できればそれを使う    
 
 
 async def get_thread(db: AsyncSession, thread_id: str, include_messages: bool = False):

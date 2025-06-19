@@ -33,7 +33,7 @@ user_router = APIRouter(
 async def get_current_user_mock() -> models.User:
     # テスト用に固定ユーザーを返す (実際には認証処理が必要)
     # このユーザーがDBに存在している前提
-    return models.User(user_id=1, email="test@example.com", name="Test User", password_hash="dummy")
+    return models.User(id=1, email="test@example.com", name="Test User", password_hash="dummy")
 
 
 # api_use_db.py (またはスレッドのルーターファイル)
@@ -44,13 +44,13 @@ async def create_new_thread(
     current_user: models.User = Depends(get_current_user_mock)
 ):
     # まずスレッド本体を作成
-    created_thread_basic_info = await crud.create_thread(db=db, thread_data=thread_data, owner_user_id=current_user.user_id)
+    created_thread_basic_info = await crud.create_thread(db=db, thread_data=thread_data, owner_user_id=current_user.id)
     if not created_thread_basic_info:
         raise HTTPException(status_code=400, detail="Thread could not be created")
 
     # 次に、リレーションシップを含めて完全にロードされたスレッドオブジェクトを取得して返す
     # これにより、レスポンスモデルのシリアライズ時に遅延読み込みが発生するのを防ぐ
-    db_thread_with_relations = await crud.get_thread(db, thread_id=created_thread_basic_info.thread_id, include_messages=True)
+    db_thread_with_relations = await crud.get_thread(db, thread_id=created_thread_basic_info.id, include_messages=True)
     if not db_thread_with_relations:
         # 作成直後に見つからないのは通常ありえないが、念のため
         raise HTTPException(status_code=500, detail="Failed to retrieve created thread with details")
@@ -68,7 +68,7 @@ async def read_thread_details(
     if db_thread is None:
         raise HTTPException(status_code=404, detail="Thread not found")
     # ここで認可チェック: current_userがこのスレッドを閲覧する権限があるか
-    if db_thread.owner_user_id != current_user.user_id:
+    if db_thread.owner_user_id != current_user.id:
          # 公開スレッドなどのロジックがなければアクセス拒否
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
     return db_thread
@@ -84,16 +84,16 @@ async def add_message_to_thread(
     if db_thread is None:
         raise HTTPException(status_code=404, detail="Thread not found")
     # 認可: このユーザーがこのスレッドにメッセージを投稿できるか
-    if db_thread.owner_user_id != current_user.user_id:
+    if db_thread.owner_user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions to post message to this thread")
 
     # メッセージ送信者がリクエストユーザーであることを確認/設定
-    if message_data.role == "user" and message_data.sender_user_id != current_user.user_id:
+    if message_data.role == "user" and message_data.sender_user_id != current_user.id:
         # API設計として、sender_user_idをリクエストで受け取るか、常に認証ユーザーにするか決める
         # ここでは、もし指定されていて認証ユーザーと異なるならエラーとする例
         # もしAIがユーザーの代わりに投稿するケースなどがあれば、ロジックは変わる
         # raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sender user ID mismatch")
-        message_data.sender_user_id = current_user.user_id # 常に認証ユーザーにする場合
+        message_data.sender_user_id = current_user.id # 常に認証ユーザーにする場合
 
     db_message = await crud.create_message(db=db, message_data=message_data, thread_id=thread_id)
     return db_message
@@ -110,7 +110,7 @@ async def get_pending_questions_for_user_endpoint(
     current_user: models.User = Depends(get_current_user_mock) # 認証と認可
 ):
     # 認可: 要求しているユーザーが、指定された user_id の情報を閲覧する権限があるか
-    if current_user.user_id != user_id:
+    if current_user.id != user_id:
         # 管理者権限など、他の条件で許可する場合もある
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
@@ -131,7 +131,7 @@ async def create_question_for_user_endpoint( # ★関数名を変更し、役割
     # ここでは単純化のため、自分自身 (current_user) の user_id とパスパラメータの user_id が一致する場合のみ許可する、
     # または、current_user が質問を作成する一般的な権限を持つと仮定します。
     # 要件に応じて適切な認可ロジックを実装してください。
-    if current_user.user_id != user_id: # もし特定のユーザー向けの質問を他人やAIが作成する場合、このチェックは不適切
+    if current_user.id != user_id: # もし特定のユーザー向けの質問を他人やAIが作成する場合、このチェックは不適切
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted to create question for this user")
 
 
@@ -160,7 +160,7 @@ async def get_next_pending_question_for_user(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user_mock) # 認証
 ):
-    if current_user.user_id != user_id:
+    if current_user.id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     # データベースから次に提示すべき質問を取得 (優先度順、作成日順など)
@@ -205,7 +205,7 @@ async def add_message_to_thread(
     # ... (既存のスレッド存在確認、認可チェック) ...
 
     if message_data.role == "user":
-        message_data.sender_user_id = current_user.user_id
+        message_data.sender_user_id = current_user.id
     elif message_data.role == "assistant": # "system", "ai_question" など他の非ユーザーロールも同様に
         message_data.sender_user_id = None
 
@@ -219,12 +219,12 @@ async def add_message_to_thread(
             question_id=message_data.answered_question_id,
             new_status='answered',
             set_answered_at=True,
-            user_id_check=current_user.user_id # オプション: 回答者が質問対象者か確認
+            user_id_check=current_user.id # オプション: 回答者が質問対象者か確認
         )
 
         # ★★★ ここでバックグラウンドでAI処理をトリガー ★★★
         # (例: FastAPIの BackgroundTasks を使う)
-        # background_tasks.add_task(process_user_answer_with_ai, db_message, current_user.user_id, thread_id)
+        # background_tasks.add_task(process_user_answer_with_ai, db_message, current_user.id, thread_id)
         # process_user_answer_with_ai 関数内で、
         # - 回答の適切性チェック
         # - 不足情報・深掘り質問生成 -> crud.create_question
@@ -280,7 +280,7 @@ async def read_user_details(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     # 認可: 自分自身の情報か、または管理者か？
-    if db_user.user_id != current_user.user_id: # and not current_user.is_admin:
+    if db_user.user_id != current_user.id: # and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return db_user
 
@@ -292,7 +292,7 @@ async def update_existing_user(
     current_user: models.User = Depends(get_current_user_mock)
 ):
     # 認可: 自分自身の情報か、または管理者か？
-    if user_id != current_user.user_id: # and not current_user.is_admin:
+    if user_id != current_user.id: # and not current_user.is_admin:
          raise HTTPException(status_code=403, detail="Not enough permissions to update this user")
 
     db_user = await crud.update_user(db, user_id=user_id, user_update_data=user_update)
@@ -307,7 +307,7 @@ async def remove_user(
     current_user: models.User = Depends(get_current_user_mock) # または管理者
 ):
     # 認可: 自分自身のアカウント削除か、または管理者か？
-    if user_id != current_user.user_id: # and not current_user.is_admin:
+    if user_id != current_user.id: # and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not enough permissions to delete this user")
 
     db_user = await crud.delete_user(db, user_id=user_id)

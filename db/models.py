@@ -39,7 +39,8 @@ class Thread(Base):
     __tablename__ = "Thread"
 
     # thread_id = Column(String, primary_key=True, index=True)
-    id = Column(String, ForeignKey("Thread.id"), primary_key=True, nullable=False, index=True) # 参照先を修正、index追加
+    # id = Column(String, ForeignKey("Thread.id"), primary_key=True, nullable=False, index=True) # 参照先を修正、index追加
+    id = Column(String, primary_key=True, nullable=False, index=True)
     owner_user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True) # index=True を追加
     mode = Column(String, nullable=False)
     title = Column(String, nullable=True) # titleもnullable=Trueの可能性あり
@@ -140,9 +141,10 @@ class Episode(Base):
     __tablename__ = "episodes"
 
     # --- 基本情報 (設計書 Section 2) ---
+    
     id = Column(String, primary_key=True, index=True) # episode_id
     thread_id = Column(String, ForeignKey("Thread.id"), nullable=False)
-    user_id = Column(String, ForeignKey("User.id"), nullable=False) # ユーザーへのリンクも直接持つと便利
+    user_id = Column(Integer, ForeignKey("User.id"), nullable=False) # ユーザーへのリンクも直接持つと便利
     timestamp = Column(DateTime, default=func.now())
     sequence_in_thread = Column(Integer, nullable=False)
     

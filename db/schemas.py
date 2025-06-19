@@ -74,7 +74,7 @@ class ThreadCreate(ThreadBase):
 
 
 class Thread(ThreadBase):
-    thread_id: str
+    id: str
     owner_user_id: int
     timestamp: datetime.datetime
     messages: List[Message] = [] # スレッド取得時にメッセージも返す場合
