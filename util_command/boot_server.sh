@@ -1,0 +1,1 @@
+./venv/bin/python -m uvicorn main:app --port 49604
