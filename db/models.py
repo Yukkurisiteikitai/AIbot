@@ -33,6 +33,8 @@ class User(Base):
     episodes = relationship("Episode", back_populates="user", cascade="all, delete-orphan")
     # PersonDataEntry.user と紐づく
     person_data_entries = relationship("PersonDataEntry", back_populates="user", cascade="all, delete-orphan")
+    # user_question_progress プログレスに結びつく
+    user_question_progress = relationship("UserQuestionProgress", back_populates="user", cascade="all, delete-orphan")
 
 
 class Thread(Base):
