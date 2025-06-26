@@ -9,6 +9,7 @@
     <!-- // <script type="module"> import diff from "https://cdn.jsdelivr.net/npm/diff@8.0.1/+esm" </script> -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/diff/5.1.0/diff.min.js"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/diff@8.0.1/dist/diff.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <div class="chat-container">
@@ -18,6 +19,26 @@
             </div>
             <div class="chat-history">
                 <!-- チャット履歴がここに表示されます -->
+                 <!-- ログインセクション -->
+                <div id="loginSection" class="login-section">
+                    <h2>ログイン</h2>
+                    <div id="g_id_onload"
+                        data-client_id="//"
+                        data-context="signin"
+                        data-ux_mode="popup"
+                        data-callback="handleCredentialResponse"
+                        data-auto_prompt="false">
+                    </div>
+                    
+                    <div class="g_id_signin"
+                        data-type="standard"
+                        data-shape="rectangular"
+                        data-theme="outline"
+                        data-text="signin_with"
+                        data-size="large"
+                        data-logo_alignment="left">
+                    </div>
+                </div>
             </div>
         </div>
         <div class="main-content">

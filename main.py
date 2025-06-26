@@ -8,13 +8,15 @@ from api_module import thread_tiket, call_internal_api,get_server_host_data, que
 
 # other router
 import db.api_use_db as api_use_db
-app = FastAPI()
+from OAth.google_auth import outh_router
 
 #DB関連
 from db.db_database import async_engine
 from db.models import Base
 
 
+# 設定
+app = FastAPI()
 origins = [
     "http://localhost",
     "http://localhost:8010",
@@ -478,5 +480,7 @@ def read_item(item_id: int, q: str = None):
 ai_router.include_router(ai_question_router)
 # db_router.include_router(api_use_db.router)
 
+
 app.include_router(ai_router)
 app.include_router(api_use_db.router)
+app.include_router(outh_router)
