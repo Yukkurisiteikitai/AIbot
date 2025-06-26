@@ -8,7 +8,7 @@ from api_module import thread_tiket, call_internal_api,get_server_host_data, que
 
 # other router
 import db.api_use_db as api_use_db
-from OAth.google_auth import outh_router
+# from OAth.google_auth impsort outh_router
 
 #DB関連
 from db.db_database import async_engine
@@ -483,4 +483,4 @@ ai_router.include_router(ai_question_router)
 
 app.include_router(ai_router)
 app.include_router(api_use_db.router)
-app.include_router(outh_router)
+# app.include_router(outh_router)
