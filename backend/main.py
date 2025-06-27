@@ -4,17 +4,20 @@ import asyncio
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from api_module import question_tiket, thread_tiket, call_internal_api,get_server_host_data, question_ticket_go
+from api_module import thread_tiket, call_internal_api,get_server_host_data, question_ticket_go
 
 # other router
 import db.api_use_db as api_use_db
-app = FastAPI()
+from OAth.google_auth import auth_router
+# from OAth.google_auth import outh_router
 
 #DB関連
 from db.db_database import async_engine
 from db.models import Base
 
 
+# 設定
+app = FastAPI()
 origins = [
     "http://localhost",
     "http://localhost:8010",
@@ -58,7 +61,7 @@ ai_router = APIRouter(
 
 
 # 2. /ai/question プレフィックスを持つルーターを定義 (ai_routerの子として)
-question_router = APIRouter(
+ai_question_router = APIRouter(
     prefix="/question",
     tags=["AI Questions"], 
 )
@@ -93,13 +96,13 @@ def get_user_help():
 
 
 
-@question_router.post("/")
+@ai_question_router.post("/")
 async def get_init_question(ticket: thread_tiket,request: Request):
     """
     質問システムの初期化エンドポイント
     ここでは質問の初期化を行う
     """
-    base_url = get_server_host_data(request=request)
+    base_url:str = get_server_host_data(request=request)
 
     # {
     #     user_id:int,
@@ -191,12 +194,12 @@ class qu_t(BaseModel):
     user_id:int
     need_theme:str = "Not Found Theme"
 
-@question_router.post("/make")
+@ai_question_router.post("/make")
 async def question_make(contextHello:qu_t,request:Request):
     if contextHello.need_theme == "Not Found Theme":
         return {"state":"error","context":"Not Found Theme"}
     
-    base_url = get_server_host_data(request=request)["base_url"]
+    base_url = get_server_host_data(request=request)
     internal_api_headers = {"Content-Type": "application/json"}
     # # 　make スレッド
     # need_items = ["what","when","how"]
@@ -211,7 +214,7 @@ async def question_make(contextHello:qu_t,request:Request):
         need_items.append("いつ")
         need_items.append("なぜ")
     
-    addList = []
+    addList:list[str] = []
 
     for q_item in need_items:
         # 質問情報
@@ -219,8 +222,8 @@ async def question_make(contextHello:qu_t,request:Request):
 あなたは質問のプロフェッショナルです。
 {contextHello.need_theme}について{q_item}の観点から質問を考えてください。
 """     
-        url = f"{base_url}/ai/question/ask"
-        print(base_url)
+        # url = f"{base_url}/ai/question/ask"
+        # print(base_url)
         # シンプル質問
         async with httpx.AsyncClient() as client:
             answer = await call_internal_api(
@@ -233,27 +236,50 @@ async def question_make(contextHello:qu_t,request:Request):
             )    
         
         print(f"answer:{answer}")
-        addList.append(answer)
-        
-        # そのプロンプトでの回答
-        # question = await 
-        # Request
-        # ちゃんとコード書けててね言われてしまったので
+        addList.append(answer["answer"]) # {"answer":"answer_context"}だから
 
-    return addList
-         
+    return {"questions":addList}
+
+class Question_tiket_answer_check(BaseModel):
+    question:str = "<<<<<$o__o$>>>>>"
+    answer:str = ">S_^_5<"
+    user_id:int = 0
+# {question:"質問1", answer:"回答1"}
+
+@ai_question_router.get("/answer/check")
+async def get_question_answer_check(ticket:Question_tiket_answer_check):
+    prompt = f"""
+質問:[{ticket.question}]
+回答:[{ticket.answer}]
+回答として間違ったものかどうかを
+ - True
+ - False
+でブーリアンで回答してください。
+説明等の他の要素は回答を禁止します。
+""" 
+    
+    answer = await runtime.process_message(user_id=ticket.user_id, message=prompt)
+    
+    if answer in "False":
+        return {"state":True}
+    elif answer in "True":
+        return {"state":False}
+
+
     
 
-@question_router.get("/check")
+@ai_question_router.get("/")
 def check_questions():
     """
-    AIに質問がこれ以上残っているのかを確認するエンドポイント
+    質問の情報が残っているか?
     """
     # ここでは仮に質問が残っていると返す
+    # 質問
+
     return {"remaining_questions": True}
 
 
-@question_router.get("/ask")
+@ai_question_router.get("/ask")
 def ask_question():
     """
     AIがユーザーに対する質問を投げるエンドポイント
@@ -263,6 +289,7 @@ def ask_question():
 
     return {"question": "あなたの名前は何ですか？"}
 
+# @question_make
 
 # from fastapi import BackgroundTasks
 # from db.db_database import AsyncSessionLocal
@@ -331,7 +358,7 @@ def ask_question():
 #         print(f"Background task for user {user_id}, theme {need_theme} completed. Generated: {len(all_generated_questions_text)} questions.")
 
 
-# @question_router.post("/make", response_model=QuestionMakeResponse, status_code=status.HTTP_202_ACCEPTED)
+# @ai_question_router.post("/make", response_model=QuestionMakeResponse, status_code=status.HTTP_202_ACCEPTED)
 # async def question_make(
 #     context_hello: QuTicket, # QuTicket に thread_id を含めるように修正
 #     request: Request,
@@ -372,7 +399,7 @@ def ask_question():
 #     )
 
 api_concurrecy_limiter = asyncio.Semaphore(4)
-@question_router.post("/ask")
+@ai_question_router.post("/ask")
 async def ask_reply(ticket:question_ticket_go):
     async with api_concurrecy_limiter:
         """
@@ -387,7 +414,7 @@ async def ask_reply(ticket:question_ticket_go):
         # ここでは仮に質問を返す
         return {"answer": answer}
 
-@question_router.post("/user_answer")
+@ai_question_router.post("/user_answer")
 def user_answer(answer: str):
     """
     ユーザーの質問への回答で追加の質問があれば質問キューに追加するエンドポイント
@@ -451,8 +478,10 @@ def read_item(item_id: int, q: str = None):
 
 
 # ルーターのデプロイ
-ai_router.include_router(question_router)
+ai_router.include_router(ai_question_router)
 # db_router.include_router(api_use_db.router)
+
 
 app.include_router(ai_router)
 app.include_router(api_use_db.router)
+app.include_router(auth_router)  # Google OAuthのルーターを追加

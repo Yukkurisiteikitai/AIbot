@@ -1,5 +1,8 @@
 // script.js
 
+console
+
+
 // --- DOM要素取得 ---
 const userInput = document.getElementById('userInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -7,8 +10,9 @@ const chatMessages = document.getElementById('chatMessages');
 const newChatBtn = document.getElementById('newChatBtn');
 
 // --- API設定 ---
-const API_BASE_URL = "http://localhost:49604"; // あなたのFastAPIサーバーのURL
+// const API_BASE_URL = "http://localhost:49604"; // あなたのFastAPIサーバーのURL
 
+console.log(API_BASE_URL);
 // --- 状態変数 ---
 let currentThreadId = null;
 let currentQuestionIdToAnswer = null; // AIからの現在の質問ID
@@ -26,6 +30,64 @@ let isThinking = false;
 let thinkingTimeout;
 let isIMEComposing = false;
 let textBeforeComposition = '';
+
+// Googleログイン成功時のコールバック関数 
+async function handleCredentialResponse(response) {
+    const googleIdToken = response.credential;
+    console.log("Got Google ID token: " + googleIdToken);
+
+    try {
+        // FastAPIの /auth/google/login エンドポイントにPOSTリクエストを送る
+        const res = await fetch(`${API_BASE_URL}/auth/google/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            // リクエストボディは {"token": "..."} の形にする
+            body: JSON.stringify({ token: googleIdToken }) 
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.detail || 'Backend authentication failed');
+        }
+
+        const loginData = await res.json();
+        console.log("Backend login successful:", loginData);
+
+        // ★★★ GoogleのIDトークンをlocalStorageに保存する ★★★
+        // これが今後のAPIアクセスのための「鍵」になる
+        localStorage.setItem('googleIdToken', googleIdToken);
+        
+        // ユーザー情報をアプリ内で保持
+        // currentUser = { id: loginData.user_id, email: loginData.user_email };
+
+        // UIをログイン後の状態に更新
+        // ...
+
+    } catch (error) {
+        console.error("Error during backend authentication:", error.message);
+    }
+}
+
+// 保護されたAPIを呼び出すときの例
+async function fetchMyProfile() {
+    const token = localStorage.getItem('googleIdToken');
+    if (!token) {
+        console.error("Not logged in.");
+        return;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/users/me`, {
+        headers: {
+            // AuthorizationヘッダーにGoogleのIDトークンをセットする
+            'Authorization': `Bearer ${token}`
+        }
+    });
+
+    const myProfile = await res.json();
+    console.log("My profile:", myProfile);
+}
 
 
 // --- UI更新関数 ---

@@ -1,5 +1,5 @@
-# AIbot
-AIbotは、LLM（大規模言語モデル）を活用した高度な対話システムです。
+# YorselfLM
+YorselfLMは、LLM（大規模言語モデル）を活用した高度な対話システムです。
 [仕組み]
 https://qiita.com/Nikeri/items/3508fa6fe3fca6f5778f
 
