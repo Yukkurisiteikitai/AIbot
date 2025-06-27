@@ -15,13 +15,14 @@ request_db_contexts_limit = 100
 
 
 # --- User CRUD ---
-async def get_user(db: AsyncSession, user_id: str):
+async def get_user(db: AsyncSession, user_id: str) -> Optional[models.User]:
     result = await db.execute(select(models.User).filter(models.User.id == user_id))
     return result.scalars().first()
 
-async def get_user_by_email(db: AsyncSession, email: str):
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[models.User]:
     result = await db.execute(select(models.User).filter(models.User.email == email))
     return result.scalars().first()
+
 
 async def create_user(db: AsyncSession, user: schemas.UserCreate):
     # パスワードハッシュ化はここで行う (passlibなどを使用)
@@ -35,6 +36,135 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate):
     await db.commit()
     await db.refresh(db_user)
     return db_user
+
+async def get_or_create_user_by_google(db: AsyncSession, google_payload: dict) -> tuple[models.User, bool]:
+    """Googleのペイロードを基にユーザーを検索、なければ作成する"""
+    google_sub = google_payload.get("sub") # googleのサブジェクトIDを取得してUser IDとして使用
+    if not google_sub:
+        return None, False
+
+    user = await get_user(db, user_id=google_sub)
+    is_new_user = False
+
+    if not user:
+        # ユーザーが存在しない場合、新規作成
+        is_new_user = True
+        new_user_data = schemas.UserCreate(
+            user_id=google_sub,
+            email=google_payload.get("email"),
+            name=google_payload.get("name"),
+            password="GoogleOAuthUseNotRequired" # Google OAuthではパスワードは不要
+        )
+        # パスワードは設定しない
+        db_user = models.User(
+            id=new_user_data.id,
+            email=new_user_data.email,
+            name=new_user_data.name,
+            password_hash=None # パスワードはNULL
+        )
+        db.add(db_user)
+        await db.commit()
+        await db.refresh(db_user)
+        return db_user, is_new_user
+    
+    return user, is_new_user
+
+async def get_users(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[models.User]:
+    result = await db.execute(select(models.User).offset(skip).limit(limit))
+    return result.scalars().all()
+
+async def create_user(db: AsyncSession, user: schemas.UserCreate) -> models.User:
+    # ★★★ パスワードをハッシュ化する処理をここに入れる ★★★
+    # hashed_password = get_password_hash(user.password) # passlib を使う場合
+    hashed_password = user.password + "_hashed" # 仮のハッシュ化 (実際には上記のようなライブラリを使う)
+
+    db_user = models.User(
+        email=user.email,
+        name=user.name,
+        password_hash=hashed_password # ハッシュ化されたパスワードを保存
+    )
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
+# async def get_user_by_google_id(db: AsyncSession, google_id: str) -> Optional[models.User]:
+#     result = await db.execute(select(models.User).filter(models.User.id == google_id))
+#     return result.scalars().first()
+
+async def get_user_by_google_id(db: AsyncSession, google_id: str):
+    """
+    Since the primary key 'id' is the google_id, we can use the more efficient get() method.
+    """
+    # This is a more direct way to get a user by primary key
+    return await db.get(models.User, google_id)
+
+async def create_user_from_google(db: AsyncSession, id_info: dict) -> models.User:
+    
+    print(f"Creating user from Google ID info: {id_info}")
+     # Extract data from the Google token info
+    google_id = id_info.get('sub')
+    print(f"Google ID (sub): {google_id}")
+    print(type(id_info))
+    email = id_info.get('email')
+    name = id_info.get('name')
+
+    
+    # Validate that we have the essential information
+    if not google_id or not email:
+        raise ValueError("Google ID (sub) and email are required from the token.")
+
+    # Create the new User object, ensuring all non-nullable fields are set.
+    new_user = models.User(
+        id=google_id,  # ★ Explicitly set the primary key 'id' to the Google ID
+        email=email,
+        name=name,
+        # ★ Provide a placeholder for the non-nullable password_hash field
+        password_hash="google_oauth_no_password" 
+    )
+
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    return new_user
+    # new_user:models.User = models.User(
+    #     google_id=id_info['sub'],
+    #     email=id_info['email'],
+    #     name=id_info.get('name')
+    # )
+    # db.add(new_user)
+    # await db.commit()
+    # await db.refresh(new_user)
+    # return new_user
+
+async def update_user(db: AsyncSession, user_id: str, user_update_data: schemas.UserUpdate) -> Optional[models.User]:
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
+    db_user = result.scalars().first()
+    if not db_user:
+        return None
+
+    update_data = user_update_data.model_dump(exclude_unset=True) # Pydantic V2, 未設定のフィールドは除外
+    for key, value in update_data.items():
+        setattr(db_user, key, value)
+
+    # updated_at はモデル定義で onupdate=func.now() があれば自動更新されるが、
+    # 明示的に更新したい場合はここで設定
+    # db_user.updated_at = datetime.datetime.now(datetime.timezone.utc)
+
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
+async def delete_user(db: AsyncSession, user_id: str) -> Optional[models.User]:
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
+    db_user = result.scalars().first()
+    if not db_user:
+        return None
+    await db.delete(db_user)
+    await db.commit()
+    return db_user # 削除されたユーザーオブジェクトを返す (確認用)
+
 
 # --- Thread CRUD ---
 async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, owner_user_id: str) -> models.Thread:
@@ -235,6 +365,7 @@ async def get_question_for_feedback(db: AsyncSession, q_context: str, skip: int 
     return result.scalars().all()
 
 
+
 async def update_question_status( # ★★★ この関数 ★★★
     db: AsyncSession,
     question_id: int,
@@ -276,56 +407,3 @@ async def update_question_status( # ★★★ この関数 ★★★
 # def get_password_hash(password):
 #     return pwd_context.hash(password)
 
-async def get_user(db: AsyncSession, user_id: str) -> Optional[models.User]:
-    result = await db.execute(select(models.User).filter(models.User.id == user_id))
-    return result.scalars().first()
-
-async def get_user_by_email(db: AsyncSession, email: str) -> Optional[models.User]:
-    result = await db.execute(select(models.User).filter(models.User.email == email))
-    return result.scalars().first()
-
-async def get_users(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[models.User]:
-    result = await db.execute(select(models.User).offset(skip).limit(limit))
-    return result.scalars().all()
-
-async def create_user(db: AsyncSession, user: schemas.UserCreate) -> models.User:
-    # ★★★ パスワードをハッシュ化する処理をここに入れる ★★★
-    # hashed_password = get_password_hash(user.password) # passlib を使う場合
-    hashed_password = user.password + "_hashed" # 仮のハッシュ化 (実際には上記のようなライブラリを使う)
-
-    db_user = models.User(
-        email=user.email,
-        name=user.name,
-        password_hash=hashed_password # ハッシュ化されたパスワードを保存
-    )
-    db.add(db_user)
-    await db.commit()
-    await db.refresh(db_user)
-    return db_user
-
-async def update_user(db: AsyncSession, user_id: str, user_update_data: schemas.UserUpdate) -> Optional[models.User]:
-    result = await db.execute(select(models.User).filter(models.User.id == user_id))
-    db_user = result.scalars().first()
-    if not db_user:
-        return None
-
-    update_data = user_update_data.model_dump(exclude_unset=True) # Pydantic V2, 未設定のフィールドは除外
-    for key, value in update_data.items():
-        setattr(db_user, key, value)
-
-    # updated_at はモデル定義で onupdate=func.now() があれば自動更新されるが、
-    # 明示的に更新したい場合はここで設定
-    # db_user.updated_at = datetime.datetime.now(datetime.timezone.utc)
-
-    await db.commit()
-    await db.refresh(db_user)
-    return db_user
-
-async def delete_user(db: AsyncSession, user_id: str) -> Optional[models.User]:
-    result = await db.execute(select(models.User).filter(models.User.id == user_id))
-    db_user = result.scalars().first()
-    if not db_user:
-        return None
-    await db.delete(db_user)
-    await db.commit()
-    return db_user # 削除されたユーザーオブジェクトを返す (確認用)

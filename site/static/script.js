@@ -1,5 +1,8 @@
 // script.js
 
+console
+
+
 // --- DOM要素取得 ---
 const userInput = document.getElementById('userInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -7,8 +10,9 @@ const chatMessages = document.getElementById('chatMessages');
 const newChatBtn = document.getElementById('newChatBtn');
 
 // --- API設定 ---
-const API_BASE_URL = "http://localhost:49604"; // あなたのFastAPIサーバーのURL
+// const API_BASE_URL = "http://localhost:49604"; // あなたのFastAPIサーバーのURL
 
+console.log(API_BASE_URL);
 // --- 状態変数 ---
 let currentThreadId = null;
 let currentQuestionIdToAnswer = null; // AIからの現在の質問ID
