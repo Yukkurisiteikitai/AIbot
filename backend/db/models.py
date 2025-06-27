@@ -14,7 +14,7 @@ from .db_database import Base # あなたのBaseクラスのインポートパ�
 class User(Base):
     __tablename__ = "User"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True)
     name = Column(String, index=True, nullable=True) # nameもnullable=Trueの可能性あり
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
@@ -43,7 +43,7 @@ class Thread(Base):
     # thread_id = Column(String, primary_key=True, index=True)
     # id = Column(String, ForeignKey("Thread.id"), primary_key=True, nullable=False, index=True) # 参照先を修正、index追加
     id = Column(String, primary_key=True, nullable=False, index=True)
-    owner_user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True) # index=True を追加
+    owner_user_id = Column(String, ForeignKey("User.id"), nullable=False, index=True) # index=True を追加
     mode = Column(String, nullable=False)
     title = Column(String, nullable=True) # titleもnullable=Trueの可能性あり
     tags = Column(JSON, nullable=True)
@@ -69,7 +69,7 @@ class Message(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     thread_id = Column(String, ForeignKey("Thread.id"), nullable=False, index=True) # index=True を追加
-    sender_user_id = Column(Integer, ForeignKey("User.id"), nullable=True, index=True) # index=True を追加
+    sender_user_id = Column(String, ForeignKey("User.id"), nullable=True, index=True) # index=True を追加
     role = Column(String, nullable=False)
     context = Column(Text, nullable=False)
     feeling = Column(String, nullable=True)
@@ -97,7 +97,7 @@ class Feedback(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     message_id = Column(Integer, ForeignKey("Message.id"), nullable=False, index=True) # index=True を追加
-    user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True) # index=True を追加
+    user_id = Column(String, ForeignKey("User.id"), nullable=False, index=True) # index=True を追加
     correct = Column(Integer, nullable=False)
     user_comment = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
@@ -116,7 +116,7 @@ class Question(Base):
     __tablename__ = "Question"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True) # この質問が誰に向けられたか (FK)
+    user_id = Column(String, ForeignKey("User.id"), nullable=False, index=True) # この質問が誰に向けられたか (FK)
     thread_id  = Column(String, ForeignKey("Thread.id"), nullable=True, index=True) # どのスレッドに関連するか (FK)
     question_text  = Column(String, nullable=False)
     reason_for_question  = Column(String, nullable=True)
@@ -146,7 +146,7 @@ class Episode(Base):
     
     id = Column(String, primary_key=True, index=True) # episode_id
     thread_id = Column(String, ForeignKey("Thread.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("User.id"), nullable=False) # ユーザーへのリンクも直接持つと便利
+    user_id = Column(String, ForeignKey("User.id"), nullable=False) # ユーザーへのリンクも直接持つと便利
     timestamp = Column(DateTime, default=func.now())
     sequence_in_thread = Column(Integer, nullable=False)
     
@@ -254,7 +254,7 @@ class UserQuestionProgress(Base):
     __tablename__ = "user_question_progress"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("User.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("User.id"), nullable=False, index=True)
     question_id = Column(Integer, ForeignKey("initialization_questions.id"), nullable=True, index=True)  # 初期化質問用
     regular_question_id = Column(Integer, ForeignKey("Question.id"), nullable=True, index=True)  # 通常質問用
     

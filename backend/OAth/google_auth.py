@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from typing import Optional
+import db.models
 
 # .envファイルから環境変数を読み込む
 from dotenv import load_dotenv
@@ -199,6 +200,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
 
 
 @app.get("/users/me")
-async def read_users_me(current_user: User = Depends(get_current_user)):
+async def read_users_me(current_user:db.models.User = Depends(get_current_user)):
     """認証されたユーザー自身の情報を返すサンプルエンドポイント"""
     return current_user

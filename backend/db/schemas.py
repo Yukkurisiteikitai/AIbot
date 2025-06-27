@@ -20,7 +20,7 @@ class UserUpdate(BaseModel): # ユーザー情報更新用 (部分更新を想�
     # パスワード変更は別のエンドポイントや特別な処理を挟むことが多いので、ここでは含めない例
 
 class User(UserBase): # APIレスポンス用 (DBモデルから変換)
-    user_id: int
+    user_id: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
     # password_hash は通常レスポンスに含めない
@@ -40,12 +40,12 @@ class MessageBase(BaseModel):
     cache: Optional[Dict[str, Any]] = None
 
 class MessageCreate(MessageBase):
-    sender_user_id: Optional[int] = None # AIの場合は指定しない
+    sender_user_id: Optional[str] = None # AIの場合は指定しない
 
 class Message(MessageBase):
     message_id: int
     thread_id: str
-    sender_user_id: Optional[int] = None
+    sender_user_id: Optional[str] = None
     edit_history: Optional[List[EditHistoryEntry]] = None
     timestamp: datetime.datetime
 
@@ -56,7 +56,7 @@ class Message(MessageBase):
         model_config = ConfigDict(from_attributes=True)
 
 class MessageCreate(MessageBase):
-    sender_user_id: Optional[int] = None
+    sender_user_id: Optional[str] = None
     answered_question_id: Optional[int] = None # ★追加
 
 
@@ -75,7 +75,7 @@ class ThreadCreate(ThreadBase):
 
 class Thread(ThreadBase):
     id: str
-    owner_user_id: int
+    owner_user_id: str
     timestamp: datetime.datetime
     messages: List[Message] = [] # スレッド取得時にメッセージも返す場合
 
@@ -138,7 +138,7 @@ class NextQuestionResponse(BaseModel): # schemas.py に定義するのが望ま�
 
 class Question(QuestionBase): # GETレスポンス用 (DBモデルから変換)
     question_id: int
-    user_id: int
+    user_id: str
     created_at: datetime.datetime # datetime をインポート
     asked_at: Optional[datetime.datetime] = None
     answered_at: Optional[datetime.datetime] = None
@@ -146,3 +146,13 @@ class Question(QuestionBase): # GETレスポンス用 (DBモデルから変換)
     model_config = ConfigDict(from_attributes=True) # Pydantic V2
 
 
+# --- Auth Schemas (新規追加) ---
+class GoogleToken(BaseModel):
+    token: str
+
+class AuthResponse(BaseModel):
+    message: str
+    user_id: str
+    email: str
+    name: Optional[str] = None
+    is_new_user: bool

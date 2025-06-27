@@ -15,7 +15,7 @@ request_db_contexts_limit = 100
 
 
 # --- User CRUD ---
-async def get_user(db: AsyncSession, user_id: int):
+async def get_user(db: AsyncSession, user_id: str):
     result = await db.execute(select(models.User).filter(models.User.id == user_id))
     return result.scalars().first()
 
@@ -37,7 +37,7 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate):
     return db_user
 
 # --- Thread CRUD ---
-async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, owner_user_id: int) -> models.Thread:
+async def create_thread(db: AsyncSession, thread_data: schemas.ThreadCreate, owner_user_id: str) -> models.Thread:
     prefix = "cht_" if thread_data.mode == "chat" else "srh_"
     generated_thread_id = prefix + str(uuid.uuid4())
 
@@ -85,7 +85,7 @@ async def get_thread(db: AsyncSession, thread_id: str, include_messages: bool = 
     result = await db.execute(query)
     return result.scalars().first()
 
-async def get_user_threads(db: AsyncSession, user_id: int, skip: int = 0, limit: int = request_db_contexts_limit):
+async def get_user_threads(db: AsyncSession, user_id: str, skip: int = 0, limit: int = request_db_contexts_limit):
     result = await db.execute(
         select(models.Thread)
         .filter(models.Thread.owner_user_id == user_id)
@@ -149,7 +149,7 @@ async def get_messages_for_thread(db: AsyncSession, thread_id: str, skip: int = 
 
 
 # --- Feedback CRUD ---
-async def create_feedback(db: AsyncSession, feedback_data: schemas.FeedbackCreate, user_id: int) -> models.Feedback:
+async def create_feedback(db: AsyncSession, feedback_data: schemas.FeedbackCreate, user_id: str) -> models.Feedback:
     db_feedback = models.Feedback(
         message_id=feedback_data.message_id,
         user_id=user_id, # 認証済みユーザーID
@@ -167,7 +167,7 @@ import datetime
 async def create_question(
     db: AsyncSession,
     question_text: str,
-    user_id: int, # 必須と仮定
+    user_id: str, # 必須と仮定
     why_question: Optional[str] = None, # オプショナルと仮定
     thread_id: Optional[str] = None, # オプショナルと仮定
     priority: int = 0,
@@ -197,7 +197,7 @@ async def create_question(
 
 async def get_questions_for_user_id(
     db: AsyncSession,
-    user_id: int,
+    user_id: str,
     skip: int = 0,
     limit: int = 100,
     status: Optional[str] = None # 特定のステータスの質問のみを取得する場合
@@ -241,7 +241,7 @@ async def update_question_status( # ★★★ この関数 ★★★
     new_status: str,
     set_asked_at: bool = False,
     set_answered_at: bool = False,
-    user_id_check: Optional[int] = None
+    user_id_check: Optional[str] = None
 ) -> Optional[models.Question]:
     query = select(models.Question).filter(models.Question.question_id == question_id)
     if user_id_check is not None:
@@ -276,7 +276,7 @@ async def update_question_status( # ★★★ この関数 ★★★
 # def get_password_hash(password):
 #     return pwd_context.hash(password)
 
-async def get_user(db: AsyncSession, user_id: int) -> Optional[models.User]:
+async def get_user(db: AsyncSession, user_id: str) -> Optional[models.User]:
     result = await db.execute(select(models.User).filter(models.User.id == user_id))
     return result.scalars().first()
 
@@ -303,7 +303,7 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate) -> models.User
     await db.refresh(db_user)
     return db_user
 
-async def update_user(db: AsyncSession, user_id: int, user_update_data: schemas.UserUpdate) -> Optional[models.User]:
+async def update_user(db: AsyncSession, user_id: str, user_update_data: schemas.UserUpdate) -> Optional[models.User]:
     result = await db.execute(select(models.User).filter(models.User.id == user_id))
     db_user = result.scalars().first()
     if not db_user:
@@ -321,7 +321,7 @@ async def update_user(db: AsyncSession, user_id: int, user_update_data: schemas.
     await db.refresh(db_user)
     return db_user
 
-async def delete_user(db: AsyncSession, user_id: int) -> Optional[models.User]:
+async def delete_user(db: AsyncSession, user_id: str) -> Optional[models.User]:
     result = await db.execute(select(models.User).filter(models.User.id == user_id))
     db_user = result.scalars().first()
     if not db_user:
