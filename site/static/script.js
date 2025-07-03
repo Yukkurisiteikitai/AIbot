@@ -1,6 +1,6 @@
 // script.js
 
-console
+// console
 
 
 // --- DOM要素取得 ---
@@ -8,6 +8,12 @@ const userInput = document.getElementById('userInput');
 const sendBtn = document.getElementById('sendBtn');
 const chatMessages = document.getElementById('chatMessages');
 const newChatBtn = document.getElementById('newChatBtn');
+const authContainer = document.getElementById('auth-container');
+const userInfo = document.getElementById('user-info');
+const userEmailSpan = document.getElementById('user-email');
+const logoutBtn = document.getElementById('logoutBtn');
+const googleSignInButton = document.querySelector('.g_id_signin'); // Googleボタン本体
+
 
 // --- API設定 ---
 // const API_BASE_URL = "http://localhost:49604"; // あなたのFastAPIサーバーのURL
@@ -18,7 +24,11 @@ let currentThreadId = null;
 let currentQuestionIdToAnswer = null; // AIからの現在の質問ID
 let messages = []; // チャットメッセージの配列: { id: string, role: 'user'|'assistant'|'system', content: string, isLoading?: boolean }
 let currentUserIdForApi = 1; // 仮の認証済みユーザーID (実際にはログイン時に設定)
-
+let currentUser = null; 
+// let currentThreadId = null;
+// let currentQuestionIdToAnswer = null; 
+// let messages = []; 
+// let currentUserIdForApi = 1; 
 
 // ユーザー入力分析関連の変数はそのまま (必要に応じて)
 let inputStartTime = null;
@@ -37,13 +47,9 @@ async function handleCredentialResponse(response) {
     console.log("Got Google ID token: " + googleIdToken);
 
     try {
-        // FastAPIの /auth/google/login エンドポイントにPOSTリクエストを送る
         const res = await fetch(`${API_BASE_URL}/auth/google/login`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            // リクエストボディは {"token": "..."} の形にする
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: googleIdToken }) 
         });
 
@@ -55,18 +61,15 @@ async function handleCredentialResponse(response) {
         const loginData = await res.json();
         console.log("Backend login successful:", loginData);
 
-        // ★★★ GoogleのIDトークンをlocalStorageに保存する ★★★
-        // これが今後のAPIアクセスのための「鍵」になる
+        // トークンをlocalStorageに保存
         localStorage.setItem('googleIdToken', googleIdToken);
         
-        // ユーザー情報をアプリ内で保持
-        // currentUser = { id: loginData.user_id, email: loginData.user_email };
-
-        // UIをログイン後の状態に更新
-        // ...
+        // ログイン後のUIと状態を更新
+        updateUIAfterLogin({id: loginData.user_id, email: loginData.user_email});
 
     } catch (error) {
-        console.error("Error during backend authentication:", error.message);
+        console.error("Error during backend authentication:", error);
+        updateUIAfterLogout(); // 認証失敗時はログアウト状態にする
     }
 }
 
@@ -206,10 +209,15 @@ async function fetchAndDisplayNextAiQuestion() {
 
 // --- イベントハンドラ ---
 newChatBtn.addEventListener('click', async () => {
+    if (!currentUser){
+        console.log("not_Login")
+        addMessageToState('system', 'ログインしてください。');
+        return
+    }
     messages = []; // メッセージ状態をクリア
     renderMessages(); // UIをクリア
-    currentThreadId = null;
-    currentQuestionIdToAnswer = null;
+    let currentThreadId = null;
+    let currentQuestionIdToAnswer = null;
     editHistory = [];
 
     const systemMsgId = addMessageToState('system', '新しいチャットを開始しています...', true);
@@ -419,6 +427,41 @@ sendBtn.addEventListener('click', sendMessage);
 
 // sendBtn.addEventListener('click', sendMessage);
 
+// Google ログインのやつ
+function updateUIAfterLogin(user) {
+    currentUser = user;
+    currentUserIdForApi = user.id; // APIで使うユーザーIDを更新！
+
+    // ログイン後のUI表示
+    userInfo.classList.remove('hidden');
+    userEmailSpan.textContent = user.email;
+    if (googleSignInButton) googleSignInButton.classList.add('hidden'); // Googleログインボタンを隠す
+    
+    // ログイン後に最初のチャットを開始するなどの処理
+    newChatBtn.disabled = false;
+    console.log(`User ${user.email} (ID: ${user.id}) logged in.`);
+    addMessageToState('system', `${user.email} としてログインしました。「新しいチャット」ボタンで会話を開始してください。`);
+}
+
+function updateUIAfterLogout() {
+    currentUser = null;
+    currentUserIdForApi = null; 
+
+    // ログアウト後のUI表示
+    userInfo.classList.add('hidden');
+    userEmailSpan.textContent = '';
+    if (googleSignInButton) googleSignInButton.classList.remove('hidden'); // Googleログインボタンを表示
+    
+    // チャット画面もリセット
+    messages = [];
+    renderMessages();
+    currentThreadId = null;
+    newChatBtn.disabled = true; // ログインするまで新しいチャットは不可
+    userInput.disabled = true;
+    sendBtn.disabled = true;
+    console.log("User logged out.");
+}
+
 
 // --- ユーティリティ関数 (escapeHtml, recordEdit, generateEditHistorySummary, interpretUserInputBehavior) ---
 // これらも前回提示したもので問題ないはずです。
@@ -498,6 +541,47 @@ function interpretUserInputBehavior(durationMs, history, backspaceCount, finalLe
     return interpretation;
 }
 
+async function checkLoginStatusOnLoad() {
+    const token = localStorage.getItem('googleIdToken');
+    
+    if (!token) {
+        console.log("No token found. User is not logged in.");
+        updateUIAfterLogout();
+        return;
+    }
+
+    console.log("Token found. Verifying with backend...");
+    try {
+        // 保存されているトークンを使って /users/me にアクセス
+        const res = await fetch(`${API_BASE_URL}/users/me`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (res.ok) {
+            // トークンが有効だった場合
+            const myProfile = await res.json();
+            console.log("Token validation successful. Profile:", myProfile);
+            // ログイン後のUI更新と状態設定
+            updateUIAfterLogin({id: myProfile.id, email: myProfile.email});
+        } else {
+            // トークンが無効だった場合 (期限切れなど)
+            console.error("Token is invalid or expired. Status:", res.status);
+            console.log("Why End load")
+            localStorage.removeItem('googleIdToken'); // 無効なトークンは削除
+            updateUIAfterLogout();
+        }
+    } catch (error) {
+        console.error("Error verifying token:", error);
+        localStorage.removeItem('googleIdToken'); // エラー時もトークン削除が安全
+        updateUIAfterLogout();
+    }
+}
+
+
+
+
 
 
 // 初期フォーカス
@@ -509,3 +593,7 @@ userInput.focus();
 //          addMessageToState('system', '「新しいチャット」ボタンを押して会話を開始してください。');
 //     }
 // })();
+
+window.addEventListener('DOMContentLoaded', () => {
+    checkLoginStatusOnLoad();
+});

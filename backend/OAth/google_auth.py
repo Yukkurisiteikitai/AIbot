@@ -63,6 +63,8 @@ auth_router = APIRouter(
     tags=["Authentication"],
 )
 
+
+# 登録等の確認をするAPIのやつは実はもうあって、
 @auth_router.post("/google/login", response_model=LoginResponse)
 async def login_with_google(
     # 変更後: request_bodyという引数でGoogleTokenモデル全体を受け取る
@@ -117,3 +119,4 @@ async def login_with_google(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred: {str(e)}"
         )
+
