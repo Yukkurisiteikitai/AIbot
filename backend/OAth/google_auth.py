@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends, HTTPException, status, APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from typing import Optional
 
 # scahemas 
 from . import scahemas
@@ -54,12 +53,6 @@ class LoginResponse(BaseModel):
     user_email: str
     is_new_user: bool
     # ここではGoogleのIDトークンをそのまま使うので、独自トークンは返さない
-
-
-# アプリケーション起動時にテーブルを作成
-# @app.on_event("startup")
-
-
 
 
 # --- 認証APIエンドポイント ---
@@ -124,37 +117,3 @@ async def login_with_google(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred: {str(e)}"
         )
-
-
-
-
-# --- サンプル：保護されたエンドポイント ---
-# このエンドポイントにアクセスするには、有効なGoogle IDトークンが必要
-
-# from fastapi.security import OAuth2PasswordBearer
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/") # ダミー
-
-# async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> models.User:
-#     """
-#     リクエストの `Authorization: Bearer <token>` ヘッダーからGoogle IDトークンを検証し、
-#     対応するユーザーを返すための依存関係。
-#     """
-#     try:
-#         id_info = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
-#         google_user_id = id_info.get("sub")
-#         if not google_user_id:
-#             raise ValueError("sub not found in token")
-#         user = await crud.get_user_by_google_id(db, google_id=google_user_id)
-#         if not user:
-#             raise HTTPException(status_code=401, detail="User not found in our database.")
-#         return user
-#     except ValueError:
-#         raise HTTPException(
-#            status_code=status.HTTP_401_UNAUTHORIZED,
-#            detail="Could not validate credentials",
-#            headers={"WWW-Authenticate": "Bearer"},
-#         )
-
-
-
-# router.include_router(auth_router)
