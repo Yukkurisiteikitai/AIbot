@@ -1,0 +1,156 @@
+Metadata-Version: 2.4
+Name: persona-analyzer-cli
+Version: 0.1.0
+Summary: PersonaAnalyzer CLI - AI-powered personality analysis and simulation tool
+Home-page: https://github.com/Yukkurisiteikitai/AIbot
+Download-URL: https://github.com/Yukkurisiteikitai/AIbot/archive/v0.1.0.tar.gz
+Author: PersonaAnalyzer Development Team
+Author-email: 1hourgoodattack@gmail.com
+License: MIT
+Project-URL: Bug Tracker, https://github.com/Yukkurisiteikitai/AIbot/issues
+Project-URL: Documentation, https://persona-analyzer-cli.readthedocs.io/
+Project-URL: Source Code, https://github.com/Yukkurisiteikitai/AIbot
+Project-URL: Security, https://github.com/Yukkurisiteikitai/AIbot/security
+Keywords: ai,personality,analysis,simulation,cli,nlp,machine-learning,security
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Topic :: Utilities
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.31.0
+Requires-Dist: click>=8.0.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: colorama>=0.4.6
+Requires-Dist: rich>=10.0.0
+Requires-Dist: typer>=0.9.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: python-dotenv>=0.19.0
+Requires-Dist: cryptography>=41.0.0
+Requires-Dist: sqlalchemy>=1.4.49
+Requires-Dist: alembic>=1.7.0
+Requires-Dist: bcrypt>=4.0.0
+Requires-Dist: pyjwt>=2.8.0
+Requires-Dist: httpx>=0.25.2
+Requires-Dist: aiofiles>=23.0.0
+Requires-Dist: asyncio-mqtt>=0.16.0
+Requires-Dist: websockets>=11.0.0
+Requires-Dist: pandas>=1.5.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: scikit-learn>=1.3.0
+Requires-Dist: matplotlib>=3.7.0
+Requires-Dist: seaborn>=0.12.0
+Requires-Dist: plotly>=5.15.0
+Requires-Dist: streamlit>=1.25.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Requires-Dist: pre-commit>=3.4.0; extra == "dev"
+Requires-Dist: sphinx>=7.0.0; extra == "dev"
+Requires-Dist: sphinx-rtd-theme>=1.3.0; extra == "dev"
+Requires-Dist: twine>=4.0.0; extra == "dev"
+Requires-Dist: wheel>=0.41.0; extra == "dev"
+Requires-Dist: build>=0.10.0; extra == "dev"
+Requires-Dist: pip-audit>=2.6.0; extra == "dev"
+Requires-Dist: bandit>=1.7.0; extra == "dev"
+Requires-Dist: safety>=2.3.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=7.4.0; extra == "test"
+Requires-Dist: pytest-cov>=4.1.0; extra == "test"
+Requires-Dist: pytest-mock>=3.11.0; extra == "test"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "test"
+Requires-Dist: coverage>=7.0.0; extra == "test"
+Requires-Dist: factory-boy>=3.3.0; extra == "test"
+Requires-Dist: faker>=19.0.0; extra == "test"
+Requires-Dist: responses>=0.23.0; extra == "test"
+Requires-Dist: httpretty>=1.1.4; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx>=7.0.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=1.3.0; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints>=1.24.0; extra == "docs"
+Requires-Dist: myst-parser>=2.0.0; extra == "docs"
+Requires-Dist: sphinx-click>=5.0.0; extra == "docs"
+Provides-Extra: ai
+Requires-Dist: torch>=2.0.0; extra == "ai"
+Requires-Dist: transformers>=4.33.0; extra == "ai"
+Requires-Dist: sentence-transformers>=2.2.2; extra == "ai"
+Requires-Dist: datasets>=2.14.0; extra == "ai"
+Requires-Dist: accelerate>=0.21.0; extra == "ai"
+Requires-Dist: evaluate>=0.4.0; extra == "ai"
+Requires-Dist: tokenizers>=0.13.0; extra == "ai"
+Requires-Dist: huggingface-hub>=0.17.0; extra == "ai"
+Requires-Dist: safetensors>=0.3.3; extra == "ai"
+Provides-Extra: all
+Requires-Dist: pytest>=7.4.0; extra == "all"
+Requires-Dist: pytest-cov>=4.1.0; extra == "all"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "all"
+Requires-Dist: black>=23.0.0; extra == "all"
+Requires-Dist: isort>=5.12.0; extra == "all"
+Requires-Dist: flake8>=6.0.0; extra == "all"
+Requires-Dist: mypy>=1.5.0; extra == "all"
+Requires-Dist: pre-commit>=3.4.0; extra == "all"
+Requires-Dist: sphinx>=7.0.0; extra == "all"
+Requires-Dist: sphinx-rtd-theme>=1.3.0; extra == "all"
+Requires-Dist: twine>=4.0.0; extra == "all"
+Requires-Dist: wheel>=0.41.0; extra == "all"
+Requires-Dist: build>=0.10.0; extra == "all"
+Requires-Dist: pip-audit>=2.6.0; extra == "all"
+Requires-Dist: bandit>=1.7.0; extra == "all"
+Requires-Dist: safety>=2.3.0; extra == "all"
+Requires-Dist: pytest>=7.4.0; extra == "all"
+Requires-Dist: pytest-cov>=4.1.0; extra == "all"
+Requires-Dist: pytest-mock>=3.11.0; extra == "all"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "all"
+Requires-Dist: coverage>=7.0.0; extra == "all"
+Requires-Dist: factory-boy>=3.3.0; extra == "all"
+Requires-Dist: faker>=19.0.0; extra == "all"
+Requires-Dist: responses>=0.23.0; extra == "all"
+Requires-Dist: httpretty>=1.1.4; extra == "all"
+Requires-Dist: sphinx>=7.0.0; extra == "all"
+Requires-Dist: sphinx-rtd-theme>=1.3.0; extra == "all"
+Requires-Dist: sphinx-autodoc-typehints>=1.24.0; extra == "all"
+Requires-Dist: myst-parser>=2.0.0; extra == "all"
+Requires-Dist: sphinx-click>=5.0.0; extra == "all"
+Requires-Dist: torch>=2.0.0; extra == "all"
+Requires-Dist: transformers>=4.33.0; extra == "all"
+Requires-Dist: sentence-transformers>=2.2.2; extra == "all"
+Requires-Dist: datasets>=2.14.0; extra == "all"
+Requires-Dist: accelerate>=0.21.0; extra == "all"
+Requires-Dist: evaluate>=0.4.0; extra == "all"
+Requires-Dist: tokenizers>=0.13.0; extra == "all"
+Requires-Dist: huggingface-hub>=0.17.0; extra == "all"
+Requires-Dist: safetensors>=0.3.3; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: platform
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# PersonaAnalyzer CLI

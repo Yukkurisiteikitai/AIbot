@@ -13,3 +13,4 @@ test_cuda_pip
 config.yaml
 site/site_venv
 backend/b_lib
+cli/cli_venv
