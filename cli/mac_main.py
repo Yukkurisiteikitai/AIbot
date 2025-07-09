@@ -4,12 +4,16 @@ import sys
 import readline # <- 1. readlineをインポート
 from typing import TypeAlias, Any
 from collections.abc import Callable
+from core.ai.analysis 
 
 # handler
 CommandHandler: TypeAlias = Callable[[list[str]], bool | None]
 
 
 class InteractiveCLI: # クラス名をより一般的なものに変更
+    def code_he(self):
+        # self.commands[name] = function
+
     def __init__(self):
         self.mode: str = "ANA"
         self.current_path = "home/"
