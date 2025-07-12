@@ -24,38 +24,57 @@ class Runtime:
         
     async def process_message(self, user_id: int, message: str) -> str:
         try:
-            # Person Dataの取得
-            # person_data_token = await self.person_data_manager.get_person_data(user_id)
-            
-            # レスポンス生成
             response = await self.llama.generate_simple(
                 prompt=message
             )
-            
             return response
             
         except Exception as e:
-            # エラーハンドリング
             return f"エラーが発生しました: {str(e)}"
+    
+    async def process_message_streaming(self, user_id: int, message: str, callback=None) -> str:
+        """ストリーミング処理でメッセージを処理"""
+        try:
+            response = await self.llama.generate_streaming(
+                prompt=message,
+                callback=callback
+            )
+            return response
+            
+        except Exception as e:
+            error_msg = f"エラーが発生しました: {str(e)}"
+            if callback:
+                await callback(error_msg, True)
+            return error_msg
     
 
     async def simpleAnswer(self, user_id: str, message: str) -> str:
         try:
-            # Person Dataの取得
-            # person_data_token = await self.person_data_manager.get_person_data(user_id)
-            
-            # レスポンス生成
             response = await self.llama.generate(
                 prompt=message,
                 person_data_token= [2, 76444, 120211, 237048, 67923, 73727, 237536]
             )
-            
             return response
             
         except Exception as e:
-            # エラーハンドリング
             logging.error(f"Error in simpleAnswer: {e}", exc_info=True)
             return f"エラーが発生しました: {str(e)}"
+    
+    async def simpleAnswer_streaming(self, user_id: str, message: str, callback=None) -> str:
+        """ストリーミング対応のsimpleAnswer"""
+        try:
+            response = await self.llama.generate_streaming(
+                prompt=message,
+                callback=callback
+            )
+            return response
+            
+        except Exception as e:
+            logging.error(f"Error in simpleAnswer_streaming: {e}", exc_info=True)
+            error_msg = f"エラーが発生しました: {str(e)}"
+            if callback:
+                await callback(error_msg, True)
+            return error_msg
 
             
     async def run(self):

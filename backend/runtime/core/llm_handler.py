@@ -92,23 +92,109 @@ class LlamaHandler:
     self,
     prompt: str,
     max_tokens: int = 200,
-    temperature: float = 1.0 # temperature は sample メソッドで使う
+    temperature: float = 1.0
     ) -> str:
         try:
-            # Define the chat history with messages
             chat_history = [
                 {"role": "user", "content": prompt}
             ]
-
-            # Generate a chat completion using the Llama model
             output = self.llm.create_chat_completion(messages=chat_history)
-
-            # Output the model's response
-            print(output)
-            return output
+            return output['choices'][0]['message']['content']
             
         except Exception as e:
-            self.logger.error(f"Simple generation error: {e}", exc_info=True) # exc_info=Trueでトレースバックも記録
+            self.logger.error(f"Simple generation error: {e}", exc_info=True)
+            raise
+    
+    async def generate_streaming(
+        self,
+        prompt: str,
+        max_tokens: int = 200,
+        temperature: float = 0.7,
+        callback=None
+    ):
+        """ストリーミング生成 - トークンごとにコールバックを呼び出す"""
+        try:
+            chat_history = [
+                {"role": "user", "content": prompt}
+            ]
+            
+            # ストリーミング対応のchat completion
+            stream = self.llm.create_chat_completion(
+                messages=chat_history,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stream=True
+            )
+            
+            full_response = ""
+            for chunk in stream:
+                if 'choices' in chunk and len(chunk['choices']) > 0:
+                    delta = chunk['choices'][0].get('delta', {})
+                    if 'content' in delta:
+                        content = delta['content']
+                        full_response += content
+                        
+                        # コールバック関数があれば呼び出し
+                        if callback:
+                            await callback(content, False)  # False = まだ完了していない
+            
+            # 完了時のコールバック
+            if callback:
+                await callback("", True)  # True = 完了
+            
+            return full_response
+            
+        except Exception as e:
+            self.logger.error(f"Streaming generation error: {e}", exc_info=True)
+            raise
+    
+    async def generate_streaming_manual(
+        self,
+        prompt: str,
+        max_tokens: int = 200,
+        temperature: float = 0.7,
+        callback=None
+    ):
+        """手動ストリーミング生成 - より細かい制御"""
+        try:
+            # プロンプトをトークン化
+            prompt_tokens = self.llm.tokenize(prompt.encode('utf-8'), add_bos=True)
+            
+            # プロンプトを評価
+            self.llm.eval(prompt_tokens)
+            
+            generated_tokens = []
+            full_response = ""
+            
+            for i in range(max_tokens):
+                # 次のトークンをサンプリング
+                next_token = self.llm.sample(temp=temperature)
+                
+                # EOSトークンチェック
+                if next_token == self.llm.token_eos():
+                    break
+                
+                generated_tokens.append(next_token)
+                
+                # トークンをテキストに変換
+                token_text = self.llm.detokenize([next_token]).decode('utf-8', errors='replace')
+                full_response += token_text
+                
+                # コールバック呼び出し
+                if callback:
+                    await callback(token_text, False)
+                
+                # 次の予測のためにトークンを評価
+                self.llm.eval([next_token])
+            
+            # 完了時のコールバック
+            if callback:
+                await callback("", True)
+            
+            return full_response
+            
+        except Exception as e:
+            self.logger.error(f"Manual streaming generation error: {e}", exc_info=True)
             raise
             
     def _decode_prompt(self, text: str,ADD_bos:bool) -> list:
