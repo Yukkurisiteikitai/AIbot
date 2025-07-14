@@ -1,7 +1,9 @@
-from fastapi import FastAPI, APIRouter,Request
+from fastapi import FastAPI, APIRouter, Request
+from fastapi.responses import StreamingResponse
 from runtime.runtime import Runtime
 import asyncio
 import httpx
+import json
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from api_module import thread_tiket, call_internal_api,get_server_host_data, question_ticket_go
@@ -411,8 +413,58 @@ async def ask_reply(ticket:question_ticket_go):
         """
         print(f"ユーザーID: {ticket.user_id}, 質問: {ticket.question}")
         answer = await runtime.process_message(user_id=ticket.user_id, message=ticket.question)
-        # ここでは仮に質問を返す
         return {"answer": answer}
+
+@ai_question_router.post("/ask/stream")
+async def ask_reply_stream(ticket: question_ticket_go):
+    """ストリーミング対応の質問応答エンドポイント"""
+    async def generate_stream():
+        try:
+            print(f"[ストリーミング] ユーザーID: {ticket.user_id}, 質問: {ticket.question}")
+            
+            # ストリーミング処理を直接実行
+            for chunk in runtime.llama.llm.create_chat_completion(
+                messages=[{"role": "user", "content": ticket.question}],
+                stream=True
+            ):
+                if 'choices' in chunk and len(chunk['choices']) > 0:
+                    delta = chunk['choices'][0].get('delta', {})
+                    if 'content' in delta:
+                        content = delta['content']
+                        data = {
+                            "content": content,
+                            "is_complete": False,
+                            "user_id": ticket.user_id
+                        }
+                        yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+            
+            # 完了シグナル
+            final_data = {
+                "content": "",
+                "is_complete": True,
+                "user_id": ticket.user_id
+            }
+            yield f"data: {json.dumps(final_data, ensure_ascii=False)}\n\n"
+            
+        except Exception as e:
+            error_data = {
+                "content": f"エラー: {str(e)}",
+                "is_complete": True,
+                "error": True,
+                "user_id": ticket.user_id
+            }
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )
 
 @ai_question_router.post("/user_answer")
 def user_answer(answer: str):

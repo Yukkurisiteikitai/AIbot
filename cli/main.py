@@ -2,20 +2,23 @@
 import os
 import sys
 import readline
+from core.ai.analysis import Analysis
+from core.ai.simulation import Reproduction
 
-class DebugCLI:
+class MainCLI:
     def __init__(self):
-        self.mode = "ANA"
+        self.mode = "MENU"
         self.current_path = "home/"
         self.commands = {
             "help": self.show_help,
-            "mode": self.change_mode,
-            "check": self.check_status,
-            "test": self.test_completion,
-            "debug": self.debug_readline,
+            "analysis": self.start_analysis,
+            "reproduction": self.start_reproduction,
+            "mode": self.show_mode,
             "exit": self.exit_cli,
-            "end": self.exit_cli,
+            "quit": self.exit_cli,
         }
+        self.analysis_handler = Analysis()
+        self.reproduction_handler = Reproduction()
         self.setup_autocomplete()
     
     def setup_autocomplete(self):
@@ -84,55 +87,39 @@ class DebugCLI:
     
     def show_help(self, args=None):
         """ヘルプを表示"""
+        print("=== YorselfLM CLI ===")
         print("利用可能なコマンド:")
-        print("  help   - このヘルプを表示")
-        print("  mode   - モードを表示/変更")
-        print("  check  - システム状態をチェック")
-        print("  test   - 補完テストを実行")
-        print("  debug  - readline設定を表示")
-        print("  exit   - CLIを終了")
-        print("\n使い方:")
-        print("  'm' + Tab → 'mode' に補完されるはずです")
-        print("  'c' + Tab → 'check' に補完されるはずです")
+        print("  help         - このヘルプを表示")
+        print("  analysis     - Analysisモードを開始")
+        print("  reproduction - Reproductionモードを開始")
+        print("  mode         - 現在のモードを表示")
+        print("  exit/quit    - CLIを終了")
+        print("\nモードについて:")
+        print("  Analysis     - スレッド管理付きの高度な対話モード")
+        print("  Reproduction - シンプルな質問応答モード")
     
-    def change_mode(self, args=None):
-        """モードを変更"""
-        if args:
-            self.mode = args[0].upper()
-            print(f"モードを {self.mode} に変更しました")
-        else:
-            print(f"現在のモード: {self.mode}")
+    def start_analysis(self, args=None):
+        """Analysisモードを開始"""
+        print("\nAnalysisモードを開始します...")
+        try:
+            self.analysis_handler.start_session()
+        except Exception as e:
+            print(f"Analysisモードでエラーが発生しました: {e}")
+        print("\nメインメニューに戻ります。")
     
-    def check_status(self, args=None):
-        """システム状態をチェック"""
-        print("システム状態: OK")
+    def start_reproduction(self, args=None):
+        """Reproductionモードを開始"""
+        print("\nReproductionモードを開始します...")
+        try:
+            self.reproduction_handler.start_session()
+        except Exception as e:
+            print(f"Reproductionモードでエラーが発生しました: {e}")
+        print("\nメインメニューに戻ります。")
     
-    def test_completion(self, args=None):
-        """補完機能のテスト"""
-        print("補完テスト:")
-        print("以下を試してください:")
-        print("1. 'm' と入力してTab")
-        print("2. 'c' と入力してTab")
-        print("3. 'he' と入力してTab")
-        print("4. 空の状態でTab")
-    
-    def debug_readline(self, args=None):
-        """readline設定のデバッグ情報を表示"""
-        print("=== readline デバッグ情報 ===")
-        print(f"readline version: {readline.__doc__}")
-        print(f"completer_delims: '{readline.get_completer_delims()}'")
-        print(f"completer function: {readline.get_completer()}")
-        
-        # 手動でcompleteを呼び出してテスト
-        print("\n=== 手動補完テスト ===")
-        test_cases = [('m', 0), ('c', 0), ('he', 0), ('', 0)]
-        
-        for text, state in test_cases:
-            try:
-                result = self.complete(text, state)
-                print(f"complete('{text}', {state}) = '{result}'")
-            except Exception as e:
-                print(f"complete('{text}', {state}) = ERROR: {e}")
+    def show_mode(self, args=None):
+        """現在のモードを表示"""
+        print(f"現在のモード: {self.mode}")
+        print("利用可能なモード: Analysis, Reproduction")
     
     def exit_cli(self, args=None):
         """CLIを終了"""
@@ -159,10 +146,11 @@ class DebugCLI:
     
     def run(self):
         """メインループ"""
-        print(f"{self.mode} analysisモード（デバッグ版）")
+        print("=== YorselfLM CLI ===\n")
+        print("LLMを活用した高度な対話システムです。")
         print("'help' でコマンド一覧を表示")
-        print("'test' で補完テストを実行")
-        print("'debug' でreadline設定を確認")
+        print("'analysis' でAnalysisモードを開始")
+        print("'reproduction' でReproductionモードを開始\n")
         
         while True:
             try:
@@ -188,8 +176,7 @@ class DebugCLI:
                 print(f"エラーが発生しました: {e}")
 
 def main():
-    print("=== デバッグ機能付きCLI ===")
-    cli = DebugCLI()
+    cli = MainCLI()
     cli.run()
 
 if __name__ == "__main__":
