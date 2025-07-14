@@ -1,0 +1,4 @@
+[console_scripts]
+pa = cli.main:main
+persona = cli.main:main
+persona-analyzer = cli.main:main

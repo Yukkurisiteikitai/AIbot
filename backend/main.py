@@ -15,6 +15,7 @@ from OAth.google_auth import auth_router
 from db.db_database import async_engine
 from db.models import Base
 
+from utils.get_sys_permanse import get_system_info_dict
 
 # 設定
 app = FastAPI()
@@ -23,6 +24,7 @@ origins = [
     "http://localhost:8010",
     "http://127.0.0.1",
     "http://127.0.0.1:8010",
+    "103.115.217.201"
     "null" # <--- ★この行を必ず追加してください。Developer Consoleで`null`オリジンからアクセスするために必要です。
 ]
 
@@ -33,6 +35,14 @@ app.add_middleware(
     allow_methods=["*"],         # 許可するHTTPメソッド (GET, POST, PUT, DELETEなど)
     allow_headers=["*"],         # 許可するHTTPヘッダー
 )
+
+# ngrok警告回避のためのミドルウェア
+@app.middleware("http")
+async def add_ngrok_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["ngrok-skip-browser-warning"] = "true"
+    return response
+
 # region READER_tool(基本的に譲歩を取得する)
 # AI の本体のモデル情報、CPUやGPUなどの使用状況が余裕があるか?具体的にどれくらいあるか
 from contextlib import asynccontextmanager
@@ -82,7 +92,9 @@ runtime = Runtime(config_path="config.yaml")
 
 @ai_router.get("/")
 def get_ai_status():
-    runtimeConfig = "get_run_machine"
+    
+    runtimeConfig = get_system_info_dict()
+    
     return runtimeConfig
 
 @ai_router.get("/user_help")

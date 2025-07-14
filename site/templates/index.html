@@ -39,6 +39,20 @@
                         data-logo_alignment="left">
                     </div>
                 </div>
+
+                <!-- index.html のどこか分かりやすい場所 (例: ヘッダー) -->
+                <div id="auth-container">
+                    <div id="user-info" class="hidden">
+                        <span id="user-email"></span>
+                        <button id="logoutBtn">ログアウト</button>
+                    </div>
+                    <!-- Googleのログインボタンはここに表示される -->
+                    <div id="g_id_onload"
+                        data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+                        data-callback="handleCredentialResponse">
+                    </div>
+                    <div class="g_id_signin" data-type="standard"></div>
+                </div>
             </div>
 
             <script>
