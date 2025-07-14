@@ -12,4 +12,5 @@ cuda_logs
 test_cuda_pip
 config.yaml
 site/site_venv
+site/site_lib
 backend/b_lib
