@@ -1,0 +1,37 @@
+{
+  "id": "analysis_20250713_033900",
+  "created_at": "2025-07-13T03:39:00.292613",
+  "messages": [
+    {
+      "role": "user",
+      "content": "ご飯だお",
+      "timestamp": "2025-07-13T03:39:07.510707"
+    },
+    {
+      "role": "assistant",
+      "content": "APIサーバーに接続できません (http://localhost:8000)",
+      "timestamp": "2025-07-13T03:39:07.619213"
+    },
+    {
+      "role": "user",
+      "content": "hello",
+      "timestamp": "2025-07-13T03:43:47.807735"
+    },
+    {
+      "role": "assistant",
+      "content": "エラー: object async_generator can't be used in 'await' expression",
+      "timestamp": "2025-07-13T03:43:50.199355"
+    },
+    {
+      "role": "user",
+      "content": "hello",
+      "timestamp": "2025-07-13T03:45:31.600795"
+    },
+    {
+      "role": "assistant",
+      "content": "エラー: 'async for' requires an object with __aiter__ method, got generator",
+      "timestamp": "2025-07-13T03:45:31.662612"
+    }
+  ],
+  "status": "interrupted"
+}
