@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>動的ノードグラフシステム</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='view/style.css') }}" />
+</head>
+<body>
+    <div class="container">
+        <div class="search-panel">
+            <input type="text" class="search-input" placeholder="検索キーワードを入力..." id="searchInput">
+            <div class="search-results" id="searchResults"></div>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn" onclick="resetView()">全体表示</button>
+            <button class="control-btn" onclick="toggleAnimation()">アニメーション</button>
+            <button class="control-btn" onclick="toggleHelp()">ヘルプ</button>
+        </div>
+
+        <div class="zoom-controls">
+            <button class="zoom-btn" onclick="graph.zoomIn()" title="ズームイン">+</button>
+            <button class="zoom-btn" onclick="graph.zoomOut()" title="ズームアウト">−</button>
+            <button class="zoom-btn" onclick="graph.resetZoom()" title="ズームリセット">⌂</button>
+        </div>
+
+        <div class="minimap">
+            <div class="minimap-content" id="minimap"></div>
+        </div>
+
+        <div id="graphContainer"></div>
+        
+        <div class="info-panel" id="infoPanel">
+            <h3 id="infoTitle"></h3>
+            <p id="infoContext"></p>
+        </div>
+
+        <div class="help-panel" id="helpPanel">
+            <button class="help-close" onclick="toggleHelp()">×</button>
+            <h3>操作方法</h3>
+            <p><strong>移動:</strong> マウスドラッグまたはWASDキー / 矢印キー</p>
+            <p><strong>高速移動:</strong> Spaceキー + WASD</p>
+            <p><strong>ズーム:</strong> マウスホイール / 2本指ピンチ / +/-ボタン</p>
+            <p><strong>ズームショートカット:</strong> Ctrl/Cmd + 0/+/-</p>
+            <p><strong>検索:</strong> 検索欄にキーワード入力</p>
+            <p><strong>フロー表示:</strong> 「流れを見る」ボタンをクリック</p>
+            <p><strong>ミニマップ:</strong> クリックで該当箇所に移動</p>
+            <p><strong>リセット:</strong> 全体表示ボタンで初期位置に戻る</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='view/main.js') }}"></script>
+</body>
+</html>
