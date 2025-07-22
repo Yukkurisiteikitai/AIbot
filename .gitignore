@@ -15,3 +15,4 @@ site/site_venv
 site/site_lib
 backend/b_lib
 cli/cli_venv
+cli/data/threads

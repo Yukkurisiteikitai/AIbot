@@ -549,3 +549,13 @@ ai_router.include_router(ai_question_router)
 app.include_router(ai_router)
 app.include_router(api_use_db.router)
 app.include_router(auth_router)  # Google OAuthのルーターを追加
+
+import uvicorn
+if __name__ == "__main__":    
+    # uvicorn起動
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=49604,
+        reload=True,
+    )
