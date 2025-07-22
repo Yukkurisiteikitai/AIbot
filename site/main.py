@@ -17,9 +17,13 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', 'your-google-client-id')
 BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')
 # ルート定義
-@app.route('/')
-def index():
-    return render_template('index.html', client_id=GOOGLE_CLIENT_ID,backend_url=BACKEND_URL)
+@app.route('/chat')
+def chat_index():
+    return render_template('chat.html', client_id=GOOGLE_CLIENT_ID,backend_url=BACKEND_URL)
+
+@app.route('/view')
+def view_index():
+    return render_template('view.html')
 
 
 
