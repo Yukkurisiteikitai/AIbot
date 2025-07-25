@@ -139,6 +139,18 @@ class Question(Base):
         CheckConstraint(status.in_(['pending', 'asked', 'answered', 'skipped']), name='question_status_check'),
     )
 
+# QuestionのLinkそうを作る
+class QuestionLink(Base):
+    __tablename__ = "QuestionLink"
+    # __tablename__ = ""
+    question_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, default="0", nullable=False)
+    sub_question_id = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+
 class Episode(Base):
     __tablename__ = "episodes"
 
@@ -189,6 +201,8 @@ class Episode(Base):
         secondary="person_data_episode_link", # 関連テーブルの名前
         back_populates="linked_episodes"
     )
+
+
 
 # --- ステップ1-3: EpisodeとPersonDataを繋ぐ「関連テーブル」 ---
 class PersonDataEpisodeLink(Base):

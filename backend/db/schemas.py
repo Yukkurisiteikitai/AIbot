@@ -142,6 +142,16 @@ class Question(QuestionBase): # GETレスポンス用 (DBモデルから変換)
     answered_at: Optional[datetime.datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
+# --- Qeustion_links ---
+class QuestionLink_main(BaseModel):
+    question_id: int
+    user_id: str
+
+class QuestionLink_sub(QuestionLink_main):
+    sub_question_id: int
+    
+    
+
 
 # --- Auth Schemas ---
 class GoogleToken(BaseModel):
